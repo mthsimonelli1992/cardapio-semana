@@ -568,7 +568,7 @@ async function handleImportLink() {
     return;
   }
   document.getElementById("import-review").innerHTML = "";
-  setImportStatus("Buscando dados do link...");
+  setImportStatus("Buscando e processando o vídeo... pode levar até 2-3 minutos, principalmente no YouTube.");
   try {
     const res = await fetch("/api/parse-recipe-link", {
       method: "POST",

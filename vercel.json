@@ -2,6 +2,6 @@
   "functions": {
     "api/parse-recipe.js": { "maxDuration": 30 },
     "api/parse-recipe-video.js": { "maxDuration": 45 },
-    "api/parse-recipe-link.js": { "maxDuration": 60 }
+    "api/parse-recipe-link.js": { "maxDuration": 180 }
   }
 }
