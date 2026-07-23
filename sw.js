@@ -1,14 +1,16 @@
-const CACHE_NAME = "cardapio-semana-v4";
+const CACHE_NAME = "cardapio-semana-v5";
 const ASSETS = [
   "./index.html",
   "./styles.css",
   "./data.js",
   "./app.js",
+  "./config.js",
   "./manifest.json",
   "./icon.svg",
   "./vendor/pdf-lib.min.js",
   "./vendor/pdf.min.js",
   "./vendor/pdf.worker.min.js",
+  "./vendor/supabase.js",
 ];
 
 self.addEventListener("install", (event) => {

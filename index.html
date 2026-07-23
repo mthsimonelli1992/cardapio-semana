@@ -14,9 +14,28 @@
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<div id="app">
+
+<!-- ===== Tela de login/cadastro ===== -->
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-card">
+    <span class="eyebrow">Cardápio da semana</span>
+    <h1>Entrar</h1>
+    <div id="auth-error" class="import-status hidden"></div>
+    <label class="field-label">E-mail</label>
+    <input type="email" id="auth-email" placeholder="voce@email.com" />
+    <label class="field-label">Senha</label>
+    <input type="password" id="auth-password" placeholder="••••••••" />
+    <div class="action-row">
+      <button class="btn btn-secondary btn-block" id="auth-signup-btn" onclick="handleSignUp()">Criar conta</button>
+      <button class="btn btn-primary btn-block" id="auth-login-btn" onclick="handleSignIn()">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
 
   <header class="app-header">
+    <button class="logout-btn" onclick="handleSignOut()" title="Sair">⏻</button>
     <span class="eyebrow">Cardápio da semana</span>
     <h1>O que vamos <em>comer</em>?</h1>
     <div id="header-stats" class="header-stats"></div>
@@ -161,8 +180,10 @@
   </div>
 </div>
 
+<script src="vendor/supabase.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/pdf.min.js"></script>
+<script src="config.js"></script>
 <script src="data.js"></script>
 <script src="app.js"></script>
 </body>

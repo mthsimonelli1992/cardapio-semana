@@ -9,8 +9,6 @@ const DAYS = [
   { key: "dom", label: "Domingo" },
 ];
 
-const STORAGE_KEY = "refeicoes-app-state-v1";
-
 function emptyMeal() {
   return { emCasa: false, recipeIds: [], peopleIds: [], extra: { adultos: 0, criancas: 0 } };
 }
@@ -42,38 +40,38 @@ function migrateWeek(week) {
   return week;
 }
 
-function loadState() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw);
-      if (!parsed.recipes) parsed.recipes = structuredClone(SEED_RECIPES);
-      if (!parsed.week) parsed.week = defaultWeek();
-      if (!parsed.people) parsed.people = [];
-      parsed.people.forEach((p) => {
-        if (!p.activityLevel) p.activityLevel = "moderado";
-      });
-      if (!parsed.checklist) parsed.checklist = {};
-      if (!parsed.generatedAt) parsed.generatedAt = null;
-      parsed.week = migrateWeek(parsed.week);
-      return parsed;
-    } catch (e) {
-      console.error("Falha ao ler estado salvo, recomeçando.", e);
-    }
-  }
-  return {
-    recipes: structuredClone(SEED_RECIPES),
-    week: defaultWeek(),
-    people: [],
-    checklist: {},
-    generatedAt: null,
-  };
+// Preenche o que falta num estado carregado (ou cria um do zero), sempre no mesmo formato —
+// usado tanto pra um usuário novo quanto pra dado antigo salvo antes de alguma dessas features.
+function normalizeState(parsed) {
+  const s = parsed ? { ...parsed } : {};
+  if (!s.recipes) s.recipes = structuredClone(SEED_RECIPES);
+  if (!s.week) s.week = defaultWeek();
+  if (!s.people) s.people = [];
+  s.people.forEach((p) => {
+    if (!p.activityLevel) p.activityLevel = "moderado";
+  });
+  if (!s.checklist) s.checklist = {};
+  if (s.generatedAt === undefined) s.generatedAt = null;
+  s.week = migrateWeek(s.week);
+  return s;
 }
 
-let state = loadState();
+let state = null;
+let sb = null;
+let currentUserId = null;
 
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+async function loadStateFromDB(userId) {
+  const { data, error } = await sb.from("app_state").select("data").eq("user_id", userId).maybeSingle();
+  if (error) console.error("Falha ao carregar estado do banco:", error);
+  return normalizeState(data ? data.data : null);
+}
+
+async function saveState() {
+  if (!currentUserId) return;
+  const { error } = await sb
+    .from("app_state")
+    .upsert({ user_id: currentUserId, data: state, updated_at: new Date().toISOString() });
+  if (error) console.error("Falha ao salvar estado:", error);
 }
 
 // ===== Navegação por abas =====
@@ -974,12 +972,78 @@ async function exportListPdf() {
   URL.revokeObjectURL(url);
 }
 
-// ===== Inicialização =====
-window.addEventListener("DOMContentLoaded", () => {
+// ===== Autenticação =====
+function showAuthScreen() {
+  currentUserId = null;
+  state = null;
+  document.getElementById("app").classList.add("hidden");
+  document.getElementById("auth-screen").classList.remove("hidden");
+}
+
+async function enterApp(user) {
+  currentUserId = user.id;
+  document.getElementById("auth-screen").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  state = await loadStateFromDB(currentUserId);
   renderPlanner();
   renderPeople();
   renderRecipes();
   renderShoppingList();
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById("auth-error");
+  el.textContent = msg;
+  el.classList.remove("hidden");
+}
+
+async function handleSignUp() {
+  const email = document.getElementById("auth-email").value.trim();
+  const password = document.getElementById("auth-password").value;
+  if (!email || password.length < 6) {
+    showAuthError("Preencha e-mail e uma senha com pelo menos 6 caracteres.");
+    return;
+  }
+  const { error } = await sb.auth.signUp({ email, password });
+  if (error) {
+    showAuthError(error.message);
+    return;
+  }
+  showAuthError("Conta criada! Se pedir confirmação por e-mail, confirme por lá e depois clique em Entrar.");
+}
+
+async function handleSignIn() {
+  const email = document.getElementById("auth-email").value.trim();
+  const password = document.getElementById("auth-password").value;
+  if (!email || !password) {
+    showAuthError("Preencha e-mail e senha.");
+    return;
+  }
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) showAuthError(error.message);
+}
+
+async function handleSignOut() {
+  await sb.auth.signOut();
+}
+
+async function initAuthFlow() {
+  const {
+    data: { session },
+  } = await sb.auth.getSession();
+  if (session) await enterApp(session.user);
+  else showAuthScreen();
+
+  sb.auth.onAuthStateChange((event, newSession) => {
+    if (event === "SIGNED_IN" && newSession) enterApp(newSession.user);
+    else if (event === "SIGNED_OUT") showAuthScreen();
+  });
+}
+
+// ===== Inicialização =====
+window.addEventListener("DOMContentLoaded", () => {
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  initAuthFlow();
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js").catch((e) => console.warn("SW falhou:", e));

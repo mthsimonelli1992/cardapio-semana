@@ -42,6 +42,35 @@ h1, h2, h3 {
   min-height: 100vh;
 }
 
+/* ---- Login/cadastro ---- */
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: linear-gradient(155deg, var(--green) 0%, var(--green-deep) 100%);
+}
+.auth-screen.hidden { display: none; }
+.auth-card {
+  background: var(--paper);
+  border-radius: var(--radius);
+  padding: 28px 22px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: var(--shadow);
+}
+.auth-card .eyebrow {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--green);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.auth-card h1 { font-size: 1.5rem; margin-bottom: 14px; }
+
 /* ---- Header ---- */
 .app-header {
   position: relative;
@@ -71,6 +100,18 @@ h1, h2, h3 {
   color: var(--mustard);
   font-weight: 700;
   margin-bottom: 4px;
+}
+.logout-btn {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.12);
+  color: white;
+  font-size: 0.9rem;
+  cursor: pointer;
 }
 .header-stats {
   margin-top: 10px;
