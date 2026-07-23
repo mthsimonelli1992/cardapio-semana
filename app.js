@@ -561,32 +561,59 @@ async function handleImportPdf(event) {
   }
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function handleImportLink() {
   const url = document.getElementById("import-link-input").value.trim();
   if (!url) {
-    alert("Cole um link de vídeo do YouTube ou TikTok.");
+    alert("Cole um link de vídeo do YouTube, TikTok ou Instagram.");
     return;
   }
   document.getElementById("import-review").innerHTML = "";
-  setImportStatus("Buscando e processando o vídeo... pode levar até 2-3 minutos, principalmente no YouTube.");
+  setImportStatus("Iniciando o download do vídeo...");
   try {
-    const res = await fetch("/api/parse-recipe-link", {
+    const startRes = await fetch("/api/import-video-start", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ url }),
     });
-    const data = await res.json();
-    if (!res.ok) {
-      const err = new Error(data.error || "Erro ao processar o link.");
-      err.details = data.details;
+    const startData = await startRes.json();
+    if (!startRes.ok) {
+      const err = new Error(startData.error || "Erro ao iniciar o download.");
+      err.details = startData.details;
       throw err;
     }
-    if (!data.recipes || data.recipes.length === 0) {
-      setImportStatus("Não encontrei nenhuma receita reconhecível nesse vídeo.");
-      return;
+
+    const { runId, platform } = startData;
+    // Fica checando de tempos em tempos até terminar — sem limite fixo de tempo, já que a
+    // busca do vídeo (principalmente YouTube, com evasão de bot) pode demorar minutos.
+    const maxAttempts = 45; // ~4 minutos no total
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      await sleep(5000);
+      setImportStatus(`Processando o vídeo... (${attempt * 5}s)`);
+      const checkRes = await fetch(`/api/import-video-status?runId=${encodeURIComponent(runId)}&platform=${encodeURIComponent(platform)}`);
+      const data = await checkRes.json();
+
+      if (data.status === "running") continue;
+
+      if (data.status === "error") {
+        setImportStatus(`Erro: ${data.error}${data.details ? " (detalhe: " + String(data.details).slice(0, 300) + ")" : ""}`);
+        return;
+      }
+
+      if (data.status === "done") {
+        if (!data.recipes || data.recipes.length === 0) {
+          setImportStatus("Não encontrei nenhuma receita reconhecível nesse vídeo.");
+          return;
+        }
+        setImportStatus(`${data.recipes.length} receita(s) encontrada(s). Confira antes de salvar:`);
+        renderImportReview(data.recipes);
+        return;
+      }
     }
-    setImportStatus(`${data.recipes.length} receita(s) encontrada(s). Confira antes de salvar:`);
-    renderImportReview(data.recipes);
+    setImportStatus("Demorou demais pra processar esse vídeo. Tenta de novo ou usa o upload de arquivo.");
   } catch (e) {
     if (e instanceof TypeError) {
       setImportStatus('Não consegui falar com o servidor — isso só funciona na versão publicada (Vercel).');

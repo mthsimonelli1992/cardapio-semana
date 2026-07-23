@@ -2,6 +2,7 @@
   "functions": {
     "api/parse-recipe.js": { "maxDuration": 30 },
     "api/parse-recipe-video.js": { "maxDuration": 45 },
-    "api/parse-recipe-link.js": { "maxDuration": 180 }
+    "api/import-video-start.js": { "maxDuration": 15 },
+    "api/import-video-status.js": { "maxDuration": 90 }
   }
 }
