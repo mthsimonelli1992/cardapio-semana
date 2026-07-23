@@ -22,6 +22,7 @@ export default async function handler(req, res) {
   }
 
   const apifyToken = process.env.APIFY_API_TOKEN;
+  const apifyProxyPassword = process.env.APIFY_PROXY_PASSWORD;
   const groqKey = process.env.GROQ_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!apifyToken || !groqKey || !anthropicKey) {
@@ -60,7 +61,7 @@ export default async function handler(req, res) {
     let workDir;
     try {
       workDir = await fs.mkdtemp(path.join(os.tmpdir(), "recipe-"));
-      const dispatcher = extracted.needsProxy ? getApifyProxyDispatcher(apifyToken) : undefined;
+      const dispatcher = extracted.needsProxy && apifyProxyPassword ? getApifyProxyDispatcher(apifyProxyPassword) : undefined;
       const { transcript, frames } = extracted.audioOnly
         ? await processAudioOnlyUrl(extracted.mediaUrl, workDir, groqKey, dispatcher)
         : await processVideoUrl(extracted.mediaUrl, workDir, extracted.ext, groqKey, extracted.duration, dispatcher);
