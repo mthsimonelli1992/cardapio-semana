@@ -12,6 +12,7 @@ import {
   processVideoUrl,
   processAudioOnlyUrl,
   getApifyProxyDispatcher,
+  YT_DOWNLOAD_HEADERS,
 } from "../lib/videoImport.js";
 import { callClaudeForRecipes } from "../lib/recipeTool.js";
 
@@ -62,9 +63,10 @@ export default async function handler(req, res) {
     try {
       workDir = await fs.mkdtemp(path.join(os.tmpdir(), "recipe-"));
       const dispatcher = extracted.needsProxy && apifyProxyPassword ? getApifyProxyDispatcher(apifyProxyPassword) : undefined;
+      const headers = extracted.needsProxy ? YT_DOWNLOAD_HEADERS : undefined;
       const { transcript, frames } = extracted.audioOnly
-        ? await processAudioOnlyUrl(extracted.mediaUrl, workDir, groqKey, dispatcher)
-        : await processVideoUrl(extracted.mediaUrl, workDir, extracted.ext, groqKey, extracted.duration, dispatcher);
+        ? await processAudioOnlyUrl(extracted.mediaUrl, workDir, groqKey, dispatcher, headers)
+        : await processVideoUrl(extracted.mediaUrl, workDir, extracted.ext, groqKey, extracted.duration, dispatcher, headers);
       console.error("[import] transcript.length:", transcript.length, "frames:", frames.length);
 
       const content = [
