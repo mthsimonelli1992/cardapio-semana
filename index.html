@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Cardápio da Semana</title>
+<meta name="theme-color" content="#3E5C3E" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Public+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="app">
+
+  <header class="app-header">
+    <span class="eyebrow">Cardápio da semana</span>
+    <h1>O que vamos <em>comer</em>?</h1>
+    <div id="header-stats" class="header-stats"></div>
+  </header>
+
+  <!-- ===== Aba: Semana ===== -->
+  <section id="view-semana" class="view active">
+    <div id="planner-days"></div>
+  </section>
+
+  <!-- ===== Aba: Pessoas ===== -->
+  <section id="view-pessoas" class="view">
+    <button class="btn btn-primary btn-block" style="margin-bottom:14px" onclick="openNewPersonModal()">+ Nova pessoa</button>
+    <div id="people-list"></div>
+  </section>
+
+  <!-- ===== Aba: Receitas ===== -->
+  <section id="view-receitas" class="view">
+    <button class="btn btn-primary btn-block" style="margin-bottom:14px" onclick="openNewRecipeModal()">+ Nova receita</button>
+    <div id="recipes-list"></div>
+  </section>
+
+  <!-- ===== Aba: Lista ===== -->
+  <section id="view-lista" class="view">
+    <div id="lista-content"></div>
+  </section>
+
+</div>
+
+<nav class="tabbar">
+  <div class="tabbar-inner">
+    <button class="tab-btn active" data-view="semana" onclick="switchView('semana')">
+      <span class="tab-icon">📅</span>Semana
+    </button>
+    <button class="tab-btn" data-view="pessoas" onclick="switchView('pessoas')">
+      <span class="tab-icon">👪</span>Pessoas
+    </button>
+    <button class="tab-btn" data-view="receitas" onclick="switchView('receitas')">
+      <span class="tab-icon">📖</span>Receitas
+    </button>
+    <button class="tab-btn" data-view="lista" onclick="switchView('lista')">
+      <span class="tab-icon">🧺</span>Lista
+    </button>
+  </div>
+</nav>
+
+<!-- ===== Modal: Nova pessoa ===== -->
+<div id="modal-new-person" class="modal-backdrop hidden">
+  <div class="modal-sheet">
+    <h2>Nova pessoa</h2>
+
+    <label class="field-label">Nome</label>
+    <input type="text" id="np-name" placeholder="Ex: Ana" />
+
+    <label class="field-label">Faixa etária / perfil</label>
+    <select id="np-profile" onchange="updateProfileFieldsVisibility()">
+      <option value="crianca_pequena">Criança (2–6 anos)</option>
+      <option value="crianca">Criança (7–12 anos)</option>
+      <option value="adolescente">Adolescente (13–17 anos)</option>
+      <option value="mulher_adulta" selected>Mulher adulta</option>
+      <option value="homem_adulto">Homem adulto</option>
+      <option value="idoso">Idoso (65+)</option>
+      <option value="personalizado">Personalizado (ex: dieta própria)</option>
+    </select>
+
+    <div id="np-activity-wrap">
+      <label class="field-label">Nível de atividade</label>
+      <select id="np-activity">
+        <option value="sedentario">Pouco ativo</option>
+        <option value="moderado" selected>Ativo normal</option>
+        <option value="ativo">Muito ativo / treina pesado</option>
+      </select>
+    </div>
+
+    <div id="np-factor-wrap" class="hidden">
+      <label class="field-label">Fator de porção (1.0 = adulto padrão)</label>
+      <input type="number" id="np-factor" min="0.1" step="0.1" value="1" />
+    </div>
+
+    <div class="action-row">
+      <button class="btn btn-secondary" onclick="closeNewPersonModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveNewPerson()">Salvar pessoa</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: Nova receita ===== -->
+<div id="modal-new-recipe" class="modal-backdrop hidden">
+  <div class="modal-sheet">
+    <h2 id="recipe-modal-title">Nova receita</h2>
+
+    <label class="field-label">Nome</label>
+    <input type="text" id="nr-name" placeholder="Ex: Frango à parmegiana" />
+
+    <label class="field-label">Categoria</label>
+    <select id="nr-category">
+      <option value="café da manhã">Café da manhã</option>
+      <option value="prato principal" selected>Prato principal</option>
+      <option value="acompanhamento">Acompanhamento</option>
+    </select>
+
+    <label class="field-label">Rende quantas porções</label>
+    <input type="number" id="nr-servings" min="1" value="4" />
+
+    <label class="field-label">Ingredientes</label>
+    <div id="nr-ingredients"></div>
+    <button class="btn-ghost" onclick="addIngRow()">+ adicionar ingrediente</button>
+
+    <div class="action-row">
+      <button class="btn btn-secondary" onclick="closeNewRecipeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveNewRecipe()">Salvar receita</button>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/pdf-lib.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

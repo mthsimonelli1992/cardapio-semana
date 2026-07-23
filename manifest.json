@@ -1,0 +1,13 @@
+{
+  "name": "Cardápio da Semana",
+  "short_name": "Cardápio",
+  "description": "Planejamento semanal de refeições e lista de compras",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#F2EFE4",
+  "theme_color": "#3E5C3E",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
