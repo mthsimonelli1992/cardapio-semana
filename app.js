@@ -499,11 +499,15 @@ function saveNewRecipe() {
 }
 
 // ===== Importar receita com IA =====
+let pendingVideoFrames = null;
+
 function openImportModal() {
   document.getElementById("import-text").value = "";
   document.getElementById("import-pdf-input").value = "";
+  document.getElementById("import-video-input").value = "";
   document.getElementById("import-status").classList.add("hidden");
   document.getElementById("import-review").innerHTML = "";
+  pendingVideoFrames = null;
   document.getElementById("modal-import-recipe").classList.remove("hidden");
 }
 function closeImportModal() {
@@ -537,12 +541,70 @@ async function handleImportPdf(event) {
   }
 }
 
+// Captura alguns quadros do vídeo direto no navegador (canvas), sem precisar subir o vídeo
+// inteiro pro servidor — só as imagens já reduzidas, que é o que a IA precisa pra ler a tela.
+function extractVideoFrames(file, maxFrames) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.muted = true;
+    video.playsInline = true;
+    video.src = URL.createObjectURL(file);
+
+    function seekTo(time) {
+      return new Promise((res) => {
+        video.onseeked = () => res();
+        video.currentTime = time;
+      });
+    }
+
+    video.onloadedmetadata = async () => {
+      try {
+        const duration = video.duration || 1;
+        const scale = Math.min(1, 480 / video.videoWidth);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(video.videoWidth * scale);
+        canvas.height = Math.round(video.videoHeight * scale);
+        const ctx = canvas.getContext("2d");
+        const frames = [];
+        const step = duration / (maxFrames + 1);
+        for (let i = 1; i <= maxFrames; i++) {
+          await seekTo(step * i);
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          frames.push(canvas.toDataURL("image/jpeg", 0.6).split(",")[1]);
+        }
+        URL.revokeObjectURL(video.src);
+        resolve(frames);
+      } catch (e) {
+        reject(e);
+      }
+    };
+    video.onerror = () => reject(new Error("Não consegui ler esse vídeo."));
+  });
+}
+
+async function handleImportVideo(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  setImportStatus("Capturando quadros do vídeo...");
+  try {
+    pendingVideoFrames = await extractVideoFrames(file, 6);
+    setImportStatus(
+      `${pendingVideoFrames.length} quadros capturados. Se quiser, cole a legenda do vídeo no campo de texto (ajuda a IA) e clique em "Extrair receitas".`
+    );
+  } catch (e) {
+    pendingVideoFrames = null;
+    setImportStatus("Não consegui processar esse vídeo. Tenta outro arquivo.");
+  }
+}
+
 let pendingImportRecipes = [];
 
 async function extractRecipesWithAI() {
   const text = document.getElementById("import-text").value.trim();
-  if (text.length < 20) {
-    alert("Cole o texto da receita ou envie um PDF primeiro.");
+  const usingVideo = pendingVideoFrames && pendingVideoFrames.length > 0;
+  if (!usingVideo && text.length < 20) {
+    alert("Cole o texto da receita, ou envie um vídeo/PDF primeiro.");
     return;
   }
   const btn = document.getElementById("import-extract-btn");
@@ -550,15 +612,17 @@ async function extractRecipesWithAI() {
   setImportStatus("Consultando a IA...");
   btn.disabled = true;
   try {
-    const res = await fetch("/api/parse-recipe", {
+    const url = usingVideo ? "/api/parse-recipe-video" : "/api/parse-recipe";
+    const body = usingVideo ? { frames: pendingVideoFrames, caption: text } : { text };
+    const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(body),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Erro ao processar.");
     if (!data.recipes || data.recipes.length === 0) {
-      setImportStatus("Não encontrei nenhuma receita reconhecível nesse texto.");
+      setImportStatus("Não encontrei nenhuma receita reconhecível nesse conteúdo.");
       return;
     }
     setImportStatus(`${data.recipes.length} receita(s) encontrada(s). Confira antes de salvar:`);

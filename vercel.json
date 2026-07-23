@@ -1,0 +1,6 @@
+{
+  "functions": {
+    "api/parse-recipe.js": { "maxDuration": 30 },
+    "api/parse-recipe-video.js": { "maxDuration": 45 }
+  }
+}

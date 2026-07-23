@@ -110,13 +110,16 @@
 <div id="modal-import-recipe" class="modal-backdrop hidden">
   <div class="modal-sheet">
     <h2>Importar receita com IA</h2>
-    <p class="import-hint">Cole o texto de uma receita (legenda, descrição, trecho de documento) ou envie um PDF. A IA organiza em ingredientes e porções — você confere antes de salvar.</p>
+    <p class="import-hint">Cole o texto de uma receita, envie um PDF, ou envie um vídeo (salvo do Instagram/TikTok/YouTube) — a IA lê o que tá na tela. Você confere tudo antes de salvar.</p>
+
+    <label class="field-label">Enviar vídeo de receita (opcional)</label>
+    <input type="file" id="import-video-input" accept="video/*" onchange="handleImportVideo(event)" />
 
     <label class="field-label">Enviar PDF (opcional)</label>
     <input type="file" id="import-pdf-input" accept="application/pdf" onchange="handleImportPdf(event)" />
 
-    <label class="field-label">Ou cole o texto aqui</label>
-    <textarea id="import-text" rows="7" placeholder="Cole a receita completa..."></textarea>
+    <label class="field-label">Cole o texto ou a legenda aqui (obrigatório se não enviar vídeo/PDF)</label>
+    <textarea id="import-text" rows="6" placeholder="Cole a receita completa, ou a legenda do vídeo como contexto extra..."></textarea>
 
     <div id="import-status" class="import-status hidden"></div>
 
