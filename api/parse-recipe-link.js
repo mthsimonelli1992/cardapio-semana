@@ -23,18 +23,29 @@ async function downloadVideoViaApify(apifyToken, url) {
       body: JSON.stringify({ url, quality: "480p", audioOnly: false }),
     }
   );
+  const rawText = await res.text();
+  console.error("[apify] status:", res.status, "resposta:", rawText.slice(0, 3000));
+
   if (!res.ok) {
-    const details = await res.text();
     const err = new Error("Falha ao baixar o vídeo (Apify).");
-    err.details = details;
+    err.details = rawText.slice(0, 1000);
     err.status = 502;
     throw err;
   }
-  const items = await res.json();
-  const item = items[0];
+  let items;
+  try {
+    items = JSON.parse(rawText);
+  } catch (e) {
+    const err = new Error("A Apify respondeu num formato inesperado.");
+    err.details = rawText.slice(0, 1000);
+    err.status = 502;
+    throw err;
+  }
+  const item = Array.isArray(items) ? items[0] : null;
   if (!item || !item.success || !item.downloadUrl) {
     const err = new Error("Não consegui baixar esse vídeo — confira se o link é público e está certo.");
     err.status = 400;
+    err.details = JSON.stringify(item || items).slice(0, 1000);
     throw err;
   }
   return item;

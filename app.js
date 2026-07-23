@@ -576,7 +576,11 @@ async function handleImportLink() {
       body: JSON.stringify({ url }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Erro ao processar o link.");
+    if (!res.ok) {
+      const err = new Error(data.error || "Erro ao processar o link.");
+      err.details = data.details;
+      throw err;
+    }
     if (!data.recipes || data.recipes.length === 0) {
       setImportStatus("Não encontrei nenhuma receita reconhecível nesse vídeo.");
       return;
@@ -586,6 +590,8 @@ async function handleImportLink() {
   } catch (e) {
     if (e instanceof TypeError) {
       setImportStatus('Não consegui falar com o servidor — isso só funciona na versão publicada (Vercel).');
+    } else if (e.details) {
+      setImportStatus(`Erro: ${e.message} (detalhe: ${String(e.details).slice(0, 300)})`);
     } else {
       setImportStatus("Erro: " + e.message);
     }
