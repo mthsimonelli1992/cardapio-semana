@@ -586,9 +586,24 @@ async function handleImportLink() {
       throw err;
     }
 
+    // YouTube resolve na hora (legenda automática, sem baixar vídeo) — sem polling.
+    if (startData.status === "error") {
+      setImportStatus(`Erro: ${startData.error}${startData.details ? " (detalhe: " + String(startData.details).slice(0, 300) + ")" : ""}`);
+      return;
+    }
+    if (startData.status === "done") {
+      if (!startData.recipes || startData.recipes.length === 0) {
+        setImportStatus("Não encontrei nenhuma receita reconhecível nesse vídeo.");
+        return;
+      }
+      setImportStatus(`${startData.recipes.length} receita(s) encontrada(s). Confira antes de salvar:`);
+      renderImportReview(startData.recipes);
+      return;
+    }
+
     const { runId, platform } = startData;
-    // Fica checando de tempos em tempos até terminar — sem limite fixo de tempo, já que a
-    // busca do vídeo (principalmente YouTube, com evasão de bot) pode demorar minutos.
+    // Instagram/TikTok: fica checando de tempos em tempos até a Apify terminar de baixar,
+    // sem limite fixo de tempo curto.
     const maxAttempts = 45; // ~4 minutos no total
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       await sleep(5000);
