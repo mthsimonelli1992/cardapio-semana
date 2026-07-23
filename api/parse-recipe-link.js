@@ -1,48 +1,98 @@
-// Função serverless (Vercel) que recebe um link de vídeo (YouTube ou TikTok) e extrai
-// título/legenda/descrição usando só endpoints públicos dessas plataformas (sem chave de API
-// nem serviço pago), depois manda pra IA estruturar em receita(s).
-// Instagram não entra aqui: a Meta bloqueia esse tipo de acesso sem app aprovado por eles.
+// Função serverless (Vercel) que recebe um link de vídeo (YouTube, TikTok OU Instagram) e monta
+// a receita a partir do conteúdo real do vídeo: baixa o arquivo (Apify), separa frames + áudio
+// (ffmpeg), transcreve o áudio (Groq/Whisper) e manda frames + transcrição pra IA (Anthropic)
+// estruturar em receita.
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import ffmpegPath from "ffmpeg-static";
 import { callClaudeForRecipes } from "../lib/recipeTool.js";
 
-async function fetchYouTubeText(url) {
-  let title = "";
-  try {
-    const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
-    if (oembedRes.ok) {
-      const oembed = await oembedRes.json();
-      title = oembed.title || "";
+const execFileAsync = promisify(execFile);
+const APIFY_ACTOR = "qbitlabs~all-in-one-video-downloader-youtube-tiktok-instagram-x-etc";
+const MAX_FRAMES = 8;
+
+async function downloadVideoViaApify(apifyToken, url) {
+  const res = await fetch(
+    `https://api.apify.com/v2/acts/${APIFY_ACTOR}/run-sync-get-dataset-items?token=${apifyToken}`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url, quality: "480p", audioOnly: false }),
     }
-  } catch (e) {
-    /* segue sem título */
-  }
-
-  let description = "";
-  try {
-    const pageRes = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-    const html = await pageRes.text();
-    const match = html.match(/"shortDescription":"((?:[^"\\]|\\.)*)"/);
-    if (match) description = JSON.parse(`"${match[1]}"`);
-  } catch (e) {
-    /* segue só com o título */
-  }
-
-  if (!title && !description) {
-    const err = new Error("Não consegui acessar esse vídeo do YouTube.");
+  );
+  if (!res.ok) {
+    const details = await res.text();
+    const err = new Error("Falha ao baixar o vídeo (Apify).");
+    err.details = details;
     err.status = 502;
     throw err;
   }
-  return `Título do vídeo: ${title}\n\nDescrição:\n${description}`;
+  const items = await res.json();
+  const item = items[0];
+  if (!item || !item.success || !item.downloadUrl) {
+    const err = new Error("Não consegui baixar esse vídeo — confira se o link é público e está certo.");
+    err.status = 400;
+    throw err;
+  }
+  return item;
 }
 
-async function fetchTikTokText(url) {
-  const res = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`);
+async function fetchToFile(url, filePath) {
+  const res = await fetch(url);
   if (!res.ok) {
-    const err = new Error("Não consegui acessar esse vídeo do TikTok — confira se o link está certo e o vídeo é público.");
+    const err = new Error("Falha ao baixar o arquivo de vídeo.");
     err.status = 502;
     throw err;
   }
+  const buffer = Buffer.from(await res.arrayBuffer());
+  await fs.writeFile(filePath, buffer);
+}
+
+async function extractAudio(videoPath, audioPath) {
+  try {
+    await execFileAsync(ffmpegPath, ["-i", videoPath, "-vn", "-acodec", "libmp3lame", "-y", audioPath]);
+    return true;
+  } catch (e) {
+    return false; // vídeo sem áudio, ou faixa não reconhecida — segue só com os frames
+  }
+}
+
+async function extractFrames(videoPath, workDir, durationSec) {
+  const fps = Math.max(0.15, Math.min(1, MAX_FRAMES / Math.max(durationSec || 20, 1)));
+  const pattern = path.join(workDir, "frame-%02d.jpg");
+  await execFileAsync(ffmpegPath, [
+    "-i", videoPath,
+    "-vf", `fps=${fps},scale=480:-1`,
+    "-frames:v", String(MAX_FRAMES),
+    "-y", pattern,
+  ]);
+  const files = (await fs.readdir(workDir)).filter((f) => f.startsWith("frame-")).sort();
+  const frames = [];
+  for (const f of files) {
+    const data = await fs.readFile(path.join(workDir, f));
+    frames.push(data.toString("base64"));
+  }
+  return frames;
+}
+
+async function transcribeWithGroq(groqKey, audioPath) {
+  const audioBuffer = await fs.readFile(audioPath);
+  const form = new FormData();
+  form.append("file", new Blob([audioBuffer], { type: "audio/mpeg" }), "audio.mp3");
+  form.append("model", "whisper-large-v3-turbo");
+  form.append("response_format", "json");
+
+  const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${groqKey}` },
+    body: form,
+  });
+  if (!res.ok) return ""; // segue sem transcrição se falhar, ainda temos os frames
   const data = await res.json();
-  return `Legenda/título do vídeo (TikTok): ${data.title || ""}`;
+  return data.text || "";
 }
 
 export default async function handler(req, res) {
@@ -51,9 +101,11 @@ export default async function handler(req, res) {
     return;
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    res.status(500).json({ error: "ANTHROPIC_API_KEY não configurada no servidor." });
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const apifyToken = process.env.APIFY_API_TOKEN;
+  const groqKey = process.env.GROQ_API_KEY;
+  if (!anthropicKey || !apifyToken || !groqKey) {
+    res.status(500).json({ error: "Faltam variáveis de ambiente no servidor (ANTHROPIC_API_KEY, APIFY_API_TOKEN ou GROQ_API_KEY)." });
     return;
   }
 
@@ -63,43 +115,38 @@ export default async function handler(req, res) {
     return;
   }
 
-  let host;
+  let workDir;
   try {
-    host = new URL(url).hostname.replace(/^www\./, "");
-  } catch (e) {
-    res.status(400).json({ error: "Link inválido." });
-    return;
-  }
+    const item = await downloadVideoViaApify(apifyToken, url);
 
-  try {
-    let text;
-    if (host.includes("youtube.com") || host.includes("youtu.be")) {
-      text = await fetchYouTubeText(url);
-    } else if (host.includes("tiktok.com")) {
-      text = await fetchTikTokText(url);
-    } else if (host.includes("instagram.com")) {
-      res.status(400).json({
-        error:
-          'Instagram não permite buscar o vídeo só pelo link (bloqueio da própria Meta). Salva o vídeo no aparelho e usa o campo "Enviar vídeo" aqui embaixo.',
-      });
-      return;
-    } else {
-      res.status(400).json({ error: "Link não reconhecido. Por enquanto aceito links de YouTube e TikTok." });
-      return;
-    }
+    workDir = await fs.mkdtemp(path.join(os.tmpdir(), "recipe-"));
+    const videoPath = path.join(workDir, `video.${item.ext || "mp4"}`);
+    await fetchToFile(item.downloadUrl, videoPath);
 
-    const recipes = await callClaudeForRecipes(apiKey, [
+    const audioPath = path.join(workDir, "audio.mp3");
+    const hasAudio = await extractAudio(videoPath, audioPath);
+    const transcript = hasAudio ? await transcribeWithGroq(groqKey, audioPath) : "";
+
+    const frames = await extractFrames(videoPath, workDir, item.duration);
+
+    const content = [
       {
         type: "text",
         text:
-          "Extraia a(s) receita(s) culinária(s) do conteúdo abaixo, retirado do título/legenda/descrição de um " +
-          "vídeo de rede social. Se faltar alguma quantidade explícita, estime com bom senso. Se não houver " +
-          "receita reconhecível, retorne uma lista vazia.\n\n---\n\n" +
-          text.slice(0, 8000),
+          `Isto é de um vídeo de receita culinária (título: "${item.title || ""}"). ` +
+          "Você tem a transcrição do áudio (o que foi falado) e alguns frames do vídeo em ordem " +
+          "(o que aparece escrito/mostrado na tela). Combine as duas fontes pra montar a(s) receita(s) " +
+          "completa(s). Se faltar alguma quantidade explícita, estime com bom senso.\n\n" +
+          (transcript ? `Transcrição do áudio:\n${transcript.slice(0, 6000)}` : "Sem áudio/transcrição disponível — use só os frames."),
       },
-    ]);
+      ...frames.map((data) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } })),
+    ];
+
+    const recipes = await callClaudeForRecipes(anthropicKey, content);
     res.status(200).json({ recipes });
   } catch (e) {
-    res.status(e.status || 500).json({ error: e.message || "Erro ao processar o link.", details: e.details || String(e) });
+    res.status(e.status || 500).json({ error: e.message || "Erro ao processar o vídeo.", details: e.details || String(e) });
+  } finally {
+    if (workDir) fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
   }
 }
