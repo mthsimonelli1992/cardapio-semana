@@ -35,7 +35,10 @@
 
   <!-- ===== Aba: Receitas ===== -->
   <section id="view-receitas" class="view">
-    <button class="btn btn-primary btn-block" style="margin-bottom:14px" onclick="openNewRecipeModal()">+ Nova receita</button>
+    <div class="action-row" style="margin-bottom:14px">
+      <button class="btn btn-secondary" onclick="openImportModal()">✨ Importar com IA</button>
+      <button class="btn btn-primary" onclick="openNewRecipeModal()">+ Nova receita</button>
+    </div>
     <div id="recipes-list"></div>
   </section>
 
@@ -103,6 +106,29 @@
   </div>
 </div>
 
+<!-- ===== Modal: Importar receita com IA ===== -->
+<div id="modal-import-recipe" class="modal-backdrop hidden">
+  <div class="modal-sheet">
+    <h2>Importar receita com IA</h2>
+    <p class="import-hint">Cole o texto de uma receita (legenda, descrição, trecho de documento) ou envie um PDF. A IA organiza em ingredientes e porções — você confere antes de salvar.</p>
+
+    <label class="field-label">Enviar PDF (opcional)</label>
+    <input type="file" id="import-pdf-input" accept="application/pdf" onchange="handleImportPdf(event)" />
+
+    <label class="field-label">Ou cole o texto aqui</label>
+    <textarea id="import-text" rows="7" placeholder="Cole a receita completa..."></textarea>
+
+    <div id="import-status" class="import-status hidden"></div>
+
+    <div class="action-row">
+      <button class="btn btn-secondary" onclick="closeImportModal()">Cancelar</button>
+      <button class="btn btn-primary" id="import-extract-btn" onclick="extractRecipesWithAI()">✨ Extrair receitas</button>
+    </div>
+
+    <div id="import-review"></div>
+  </div>
+</div>
+
 <!-- ===== Modal: Nova receita ===== -->
 <div id="modal-new-recipe" class="modal-backdrop hidden">
   <div class="modal-sheet">
@@ -133,6 +159,7 @@
 </div>
 
 <script src="vendor/pdf-lib.min.js"></script>
+<script src="vendor/pdf.min.js"></script>
 <script src="data.js"></script>
 <script src="app.js"></script>
 </body>

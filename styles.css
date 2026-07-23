@@ -262,7 +262,7 @@ h1, h2, h3 {
 }
 .meal-total-hint { font-size: 0.76rem; color: var(--ink-soft); }
 
-select, input[type="text"], input[type="number"] {
+select, input[type="text"], input[type="number"], textarea {
   font-family: inherit;
   font-size: 0.9rem;
   padding: 9px 10px;
@@ -272,10 +272,23 @@ select, input[type="text"], input[type="number"] {
   color: var(--ink);
   width: 100%;
 }
-select:focus, input:focus {
+textarea { resize: vertical; }
+select:focus, input:focus, textarea:focus {
   outline: 2px solid var(--green);
   outline-offset: 1px;
 }
+
+.import-hint { font-size: 0.85rem; color: var(--ink-soft); margin: -4px 0 4px; }
+.import-status {
+  font-size: 0.85rem;
+  color: var(--green-deep);
+  background: rgba(62,92,62,0.1);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-top: 10px;
+}
+.import-review-card { margin-top: 12px; }
+.btn:disabled { opacity: 0.6; cursor: default; transform: none; }
 
 .hidden { display: none; }
 

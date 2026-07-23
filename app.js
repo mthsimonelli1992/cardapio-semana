@@ -498,6 +498,132 @@ function saveNewRecipe() {
   renderPlanner();
 }
 
+// ===== Importar receita com IA =====
+function openImportModal() {
+  document.getElementById("import-text").value = "";
+  document.getElementById("import-pdf-input").value = "";
+  document.getElementById("import-status").classList.add("hidden");
+  document.getElementById("import-review").innerHTML = "";
+  document.getElementById("modal-import-recipe").classList.remove("hidden");
+}
+function closeImportModal() {
+  document.getElementById("modal-import-recipe").classList.add("hidden");
+}
+
+function setImportStatus(text) {
+  const el = document.getElementById("import-status");
+  el.textContent = text;
+  el.classList.remove("hidden");
+}
+
+async function handleImportPdf(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  setImportStatus("Lendo PDF...");
+  try {
+    const buffer = await file.arrayBuffer();
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    let text = "";
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map((it) => it.str).join(" ") + "\n";
+    }
+    document.getElementById("import-text").value = text.trim();
+    setImportStatus(`PDF lido (${pdf.numPages} página${pdf.numPages > 1 ? "s" : ""}). Confira o texto e clique em "Extrair receitas".`);
+  } catch (e) {
+    setImportStatus("Não consegui ler esse PDF. Tenta colar o texto manualmente.");
+  }
+}
+
+let pendingImportRecipes = [];
+
+async function extractRecipesWithAI() {
+  const text = document.getElementById("import-text").value.trim();
+  if (text.length < 20) {
+    alert("Cole o texto da receita ou envie um PDF primeiro.");
+    return;
+  }
+  const btn = document.getElementById("import-extract-btn");
+  document.getElementById("import-review").innerHTML = "";
+  setImportStatus("Consultando a IA...");
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/parse-recipe", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Erro ao processar.");
+    if (!data.recipes || data.recipes.length === 0) {
+      setImportStatus("Não encontrei nenhuma receita reconhecível nesse texto.");
+      return;
+    }
+    setImportStatus(`${data.recipes.length} receita(s) encontrada(s). Confira antes de salvar:`);
+    renderImportReview(data.recipes);
+  } catch (e) {
+    if (e instanceof TypeError) {
+      setImportStatus('Não consegui falar com o servidor de IA — isso só funciona na versão publicada (Vercel), não abrindo o arquivo local direto.');
+    } else {
+      setImportStatus("Erro: " + e.message);
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderImportReview(recipes) {
+  pendingImportRecipes = recipes;
+  document.getElementById("import-review").innerHTML = recipes
+    .map(
+      (r, idx) => `
+    <div class="recipe-card import-review-card" id="import-card-${idx}">
+      <div class="recipe-card-top">
+        <div>
+          <div class="recipe-name">${r.nome}</div>
+          <div class="person-meta">${r.categoria} · rende ${r.rende_porcoes} porç.</div>
+        </div>
+      </div>
+      <ul class="recipe-ing-list">
+        ${(r.ingredientes || []).map((i) => `<li>${i.quantidade} ${i.unidade} — ${i.nome}</li>`).join("")}
+      </ul>
+      <div class="action-row">
+        <button class="btn btn-secondary" onclick="discardImportedRecipe(${idx})">Descartar</button>
+        <button class="btn btn-primary" onclick="acceptImportedRecipe(${idx})">Adicionar ao banco</button>
+      </div>
+    </div>
+  `
+    )
+    .join("");
+}
+
+function acceptImportedRecipe(idx) {
+  const r = pendingImportRecipes[idx];
+  if (!r) return;
+  const id = r.nome.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Date.now();
+  state.recipes.push({
+    id,
+    name: r.nome,
+    category: r.categoria,
+    baseServings: Math.max(1, parseInt(r.rende_porcoes) || 4),
+    ingredients: (r.ingredientes || []).map((i) => ({
+      name: i.nome,
+      qty: Number(i.quantidade) || 1,
+      unit: i.unidade || "un",
+    })),
+  });
+  saveState();
+  renderRecipes();
+  renderPlanner();
+  document.getElementById(`import-card-${idx}`)?.remove();
+}
+
+function discardImportedRecipe(idx) {
+  document.getElementById(`import-card-${idx}`)?.remove();
+}
+
 // ===== Lista de compras =====
 function computeAggregatedIngredients() {
   const totals = {}; // key: "nome||unidade" -> { name, unit, qty }
