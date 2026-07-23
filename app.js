@@ -52,6 +52,7 @@ function normalizeState(parsed) {
   });
   if (!s.checklist) s.checklist = {};
   if (s.generatedAt === undefined) s.generatedAt = null;
+  if (!s.listHistory) s.listHistory = [];
   s.week = migrateWeek(s.week);
   return s;
 }
@@ -501,6 +502,7 @@ let pendingVideoFrames = null;
 
 function openImportModal() {
   document.getElementById("import-text").value = "";
+  document.getElementById("import-link-input").value = "";
   document.getElementById("import-pdf-input").value = "";
   document.getElementById("import-video-input").value = "";
   document.getElementById("import-status").classList.add("hidden");
@@ -536,6 +538,37 @@ async function handleImportPdf(event) {
     setImportStatus(`PDF lido (${pdf.numPages} página${pdf.numPages > 1 ? "s" : ""}). Confira o texto e clique em "Extrair receitas".`);
   } catch (e) {
     setImportStatus("Não consegui ler esse PDF. Tenta colar o texto manualmente.");
+  }
+}
+
+async function handleImportLink() {
+  const url = document.getElementById("import-link-input").value.trim();
+  if (!url) {
+    alert("Cole um link de vídeo do YouTube ou TikTok.");
+    return;
+  }
+  document.getElementById("import-review").innerHTML = "";
+  setImportStatus("Buscando dados do link...");
+  try {
+    const res = await fetch("/api/parse-recipe-link", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Erro ao processar o link.");
+    if (!data.recipes || data.recipes.length === 0) {
+      setImportStatus("Não encontrei nenhuma receita reconhecível nesse vídeo.");
+      return;
+    }
+    setImportStatus(`${data.recipes.length} receita(s) encontrada(s). Confira antes de salvar:`);
+    renderImportReview(data.recipes);
+  } catch (e) {
+    if (e instanceof TypeError) {
+      setImportStatus('Não consegui falar com o servidor — isso só funciona na versão publicada (Vercel).');
+    } else {
+      setImportStatus("Erro: " + e.message);
+    }
   }
 }
 
@@ -738,6 +771,32 @@ function getMarketPurchaseText(item) {
   return `${packages}x ${ref.label}`;
 }
 
+// Identifica a semana ISO atual (ano + nº da semana), pra cada "gerar lista" dentro da mesma
+// semana atualizar o mesmo registro do histórico em vez de empilhar duplicata.
+function getISOWeekKey(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNum = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+}
+
+function saveListSnapshot(items) {
+  if (!state.listHistory) state.listHistory = [];
+  const weekKey = getISOWeekKey(new Date());
+  const snapshot = {
+    weekKey,
+    generatedAt: state.generatedAt,
+    items: items.map((i) => ({ name: i.name, unit: i.unit, qty: i.qty })),
+    menuText: buildWeekMenuText(),
+  };
+  const idx = state.listHistory.findIndex((h) => h.weekKey === weekKey);
+  if (idx >= 0) state.listHistory[idx] = snapshot;
+  else state.listHistory.unshift(snapshot);
+  state.listHistory = state.listHistory.slice(0, 20);
+}
+
 function generateChecklist() {
   const items = computeAggregatedIngredients();
   if (items.length === 0) {
@@ -752,6 +811,7 @@ function generateChecklist() {
   });
   state.checklist = newChecklist;
   state.generatedAt = new Date().toISOString();
+  saveListSnapshot(items);
   saveState();
   renderShoppingList();
 }
@@ -817,7 +877,57 @@ function renderShoppingList() {
     <div class="action-row">
       <button class="btn btn-secondary btn-block" onclick="exportListPdf()">📄 Baixar PDF com checklist</button>
     </div>
+    <div class="action-row">
+      <button class="btn btn-secondary btn-block" onclick="openHistoryModal()">🕘 Histórico de listas</button>
+    </div>
   `;
+}
+
+function openHistoryModal() {
+  renderHistoryModal();
+  document.getElementById("modal-list-history").classList.remove("hidden");
+}
+function closeHistoryModal() {
+  document.getElementById("modal-list-history").classList.add("hidden");
+}
+
+function renderHistoryModal() {
+  const container = document.getElementById("history-content");
+  const history = state.listHistory || [];
+  if (history.length === 0) {
+    container.innerHTML = `<div class="empty-state"><span class="glyph">🕘</span>Nenhuma lista gerada ainda. Gere a lista da semana pra ela começar a ficar guardada aqui.</div>`;
+    return;
+  }
+  container.innerHTML = history
+    .map((h, idx) => {
+      const date = h.generatedAt ? new Date(h.generatedAt).toLocaleDateString("pt-BR") : "?";
+      return `
+    <div class="recipe-card">
+      <div class="recipe-card-top">
+        <div>
+          <div class="recipe-name">Semana ${h.weekKey} · ${date}</div>
+          <div class="person-meta">${h.items.length} ite${h.items.length > 1 ? "ns" : "m"}</div>
+        </div>
+        <button class="btn-ghost" onclick="copyHistoryEntry(${idx})">copiar</button>
+      </div>
+      <ul class="recipe-ing-list">
+        ${h.items.map((i) => `<li>${i.name} — ${getMarketPurchaseText(i)}</li>`).join("")}
+      </ul>
+    </div>
+  `;
+    })
+    .join("");
+}
+
+async function copyHistoryEntry(idx) {
+  const h = (state.listHistory || [])[idx];
+  if (!h) return;
+  const text =
+    "🛒 Lista de compras:\n" +
+    h.items.map((i) => `- ${i.name}: ${getMarketPurchaseText(i)}`).join("\n") +
+    (h.menuText ? `\n\n${h.menuText}` : "");
+  await navigator.clipboard.writeText(text);
+  alert("Copiado! Cole onde quiser.");
 }
 
 // Monta o cardápio dia a dia com os ingredientes já escalados de cada prato,

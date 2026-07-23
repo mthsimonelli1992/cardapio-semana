@@ -129,9 +129,15 @@
 <div id="modal-import-recipe" class="modal-backdrop hidden">
   <div class="modal-sheet">
     <h2>Importar receita com IA</h2>
-    <p class="import-hint">Cole o texto de uma receita, envie um PDF, ou envie um vídeo (salvo do Instagram/TikTok/YouTube) — a IA lê o que tá na tela. Você confere tudo antes de salvar.</p>
+    <p class="import-hint">Cole um link de vídeo, o texto de uma receita, envie um PDF, ou envie o vídeo salvo. Você confere tudo antes de salvar.</p>
 
-    <label class="field-label">Enviar vídeo de receita (opcional)</label>
+    <label class="field-label">Link do YouTube ou TikTok (opcional)</label>
+    <div class="dish-row">
+      <input type="text" id="import-link-input" placeholder="https://..." />
+      <button class="btn btn-secondary" onclick="handleImportLink()">Buscar</button>
+    </div>
+
+    <label class="field-label">Ou enviar vídeo de receita salvo no aparelho (Instagram/TikTok/YouTube)</label>
     <input type="file" id="import-video-input" accept="video/*" onchange="handleImportVideo(event)" />
 
     <label class="field-label">Enviar PDF (opcional)</label>
@@ -148,6 +154,17 @@
     </div>
 
     <div id="import-review"></div>
+  </div>
+</div>
+
+<!-- ===== Modal: Histórico de listas ===== -->
+<div id="modal-list-history" class="modal-backdrop hidden">
+  <div class="modal-sheet">
+    <h2>Histórico de listas</h2>
+    <div id="history-content"></div>
+    <div class="action-row">
+      <button class="btn btn-secondary btn-block" onclick="closeHistoryModal()">Fechar</button>
+    </div>
   </div>
 </div>
 
