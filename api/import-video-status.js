@@ -46,6 +46,7 @@ export default async function handler(req, res) {
     }
 
     const items = await getApifyDatasetItems(apifyToken, run.defaultDatasetId);
+    console.error("[apify] item recebido:", JSON.stringify(items[0]).slice(0, 1000));
     const extracted = extractResultFromItem(platform, items[0]);
     if (!extracted) {
       res.status(200).json({
@@ -61,6 +62,7 @@ export default async function handler(req, res) {
       const { transcript, frames } = extracted.audioOnly
         ? await processAudioOnlyUrl(extracted.mediaUrl, workDir, groqKey)
         : await processVideoUrl(extracted.mediaUrl, workDir, extracted.ext, groqKey, extracted.duration);
+      console.error("[import] transcript.length:", transcript.length, "frames:", frames.length);
 
       const content = [
         {
