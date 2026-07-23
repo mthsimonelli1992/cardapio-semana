@@ -95,9 +95,25 @@ function recipeOptionsHtml(selectedId, category, placeholder) {
   return `<option value="">${placeholder || "— escolher receita —"}</option>${opts}`;
 }
 
+// Datas reais da semana atual (segunda a domingo), só pra exibição — o estado continua
+// indexado por dia da semana genérico (seg/ter/...), não por data específica.
+function getWeekDates() {
+  const now = new Date();
+  const dayNum = now.getDay() || 7;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (dayNum - 1));
+  return DAYS.map((d, i) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + i);
+    return date;
+  });
+}
+
 function renderPlanner() {
   const container = document.getElementById("planner-days");
-  container.innerHTML = DAYS.map((d) => {
+  const weekDates = getWeekDates();
+  const todayStr = new Date().toDateString();
+  container.innerHTML = DAYS.map((d, i) => {
     const day = state.week[d.key];
     const activeCount = ["almoco", "jantar"].filter((m) => day[m].emCasa).length;
     const pillText = activeCount === 0 ? "sem refeições em casa" : `${activeCount} refeição(ões) em casa`;
@@ -110,12 +126,16 @@ function renderPlanner() {
       })
       .filter(Boolean)
       .join(" ");
+    const isToday = weekDates[i].toDateString() === todayStr;
     return `
       <details class="day-card ${activeCount > 0 ? "has-meals" : ""}" ${activeCount > 0 ? "open" : ""}>
         <summary>
-          <div>
-            <span class="day-name">${d.label}</span>
-            ${dishIcons ? `<div class="day-dish-preview">${dishIcons}</div>` : ""}
+          <div class="day-heading">
+            <div class="day-num ${isToday ? "today" : ""}">${weekDates[i].getDate()}</div>
+            <div>
+              <span class="day-name">${d.label}</span>
+              ${dishIcons ? `<div class="day-dish-preview">${dishIcons}</div>` : ""}
+            </div>
           </div>
           <span class="day-summary-pill ${activeCount > 0 ? "has-meals" : ""}">${pillText}</span>
         </summary>
