@@ -1,7 +1,7 @@
 // Função serverless (Vercel) que recebe um link de vídeo (YouTube, TikTok OU Instagram) e monta
-// a receita a partir do conteúdo real do vídeo: baixa o arquivo (Apify), separa frames + áudio
-// (ffmpeg), transcreve o áudio (Groq/Whisper) e manda frames + transcrição pra IA (Anthropic)
-// estruturar em receita.
+// a receita a partir do conteúdo real do vídeo: baixa o arquivo (Apify — um ator especializado
+// por plataforma, já que o "baixador genérico" apanha muito de bot-detection do Instagram/YouTube),
+// separa frames + áudio (ffmpeg), transcreve o áudio (Groq/Whisper) e manda pra IA estruturar.
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import fs from "node:fs/promises";
@@ -11,50 +11,77 @@ import ffmpegPath from "ffmpeg-static";
 import { callClaudeForRecipes } from "../lib/recipeTool.js";
 
 const execFileAsync = promisify(execFile);
-const APIFY_ACTOR = "qbitlabs~all-in-one-video-downloader-youtube-tiktok-instagram-x-etc";
 const MAX_FRAMES = 8;
 
-async function downloadVideoViaApify(apifyToken, url) {
-  const res = await fetch(
-    `https://api.apify.com/v2/acts/${APIFY_ACTOR}/run-sync-get-dataset-items?token=${apifyToken}`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ url, quality: "480p", audioOnly: false }),
-    }
-  );
-  const rawText = await res.text();
-  console.error("[apify] status:", res.status, "resposta:", rawText.slice(0, 3000));
+function detectPlatform(url) {
+  const host = new URL(url).hostname.replace(/^www\./, "");
+  if (host.includes("instagram.com")) return "instagram";
+  if (host.includes("tiktok.com")) return "tiktok";
+  if (host.includes("youtube.com") || host.includes("youtu.be")) return "youtube";
+  return null;
+}
 
+async function runApifyActor(token, actorId, input) {
+  const res = await fetch(`https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${token}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const rawText = await res.text();
+  console.error(`[apify:${actorId}] status:`, res.status, "resposta:", rawText.slice(0, 2000));
   if (!res.ok) {
-    const err = new Error("Falha ao baixar o vídeo (Apify).");
+    const err = new Error("Falha ao consultar a Apify.");
     err.details = rawText.slice(0, 1000);
     err.status = 502;
     throw err;
   }
-  let items;
   try {
-    items = JSON.parse(rawText);
+    const items = JSON.parse(rawText);
+    return Array.isArray(items) ? items : [];
   } catch (e) {
     const err = new Error("A Apify respondeu num formato inesperado.");
     err.details = rawText.slice(0, 1000);
     err.status = 502;
     throw err;
   }
-  const item = Array.isArray(items) ? items[0] : null;
-  if (!item || !item.success || !item.downloadUrl) {
-    const err = new Error("Não consegui baixar esse vídeo — confira se o link é público e está certo.");
-    err.status = 400;
-    err.details = JSON.stringify(item || items).slice(0, 1000);
-    throw err;
-  }
-  return item;
+}
+
+function fail(message, item, items) {
+  const err = new Error(message);
+  err.status = 400;
+  err.details = JSON.stringify(item || items).slice(0, 500);
+  throw err;
+}
+
+async function fetchInstagram(token, url) {
+  const items = await runApifyActor(token, "onyx_quarry~instagram-reel-download", { url });
+  const item = items[0];
+  if (!item || !item.videoUrl) fail("Não consegui baixar esse reel — confira se é público.", item, items);
+  return { videoUrl: item.videoUrl, title: "", ext: "mp4", duration: null };
+}
+
+async function fetchTikTok(token, url) {
+  const items = await runApifyActor(token, "qbitlabs~all-in-one-video-downloader-youtube-tiktok-instagram-x-etc", {
+    url,
+    quality: "480p",
+    audioOnly: false,
+  });
+  const item = items[0];
+  if (!item || !item.success || !item.downloadUrl) fail("Não consegui baixar esse vídeo do TikTok.", item, items);
+  return { videoUrl: item.downloadUrl, title: item.title || "", ext: item.ext || "mp4", duration: item.duration };
+}
+
+async function fetchYouTubeAudio(token, url) {
+  const items = await runApifyActor(token, "utils~youtube-link", { url, audioQuality: "high" });
+  const item = items[0];
+  if (!item || !item.downloadUrl) fail("Não consegui baixar esse vídeo do YouTube.", item, items);
+  return { audioUrl: item.downloadUrl, title: item.title || "" };
 }
 
 async function fetchToFile(url, filePath) {
   const res = await fetch(url);
   if (!res.ok) {
-    const err = new Error("Falha ao baixar o arquivo de vídeo.");
+    const err = new Error("Falha ao baixar o arquivo.");
     err.status = 502;
     throw err;
   }
@@ -72,7 +99,7 @@ async function extractAudio(videoPath, audioPath) {
 }
 
 async function extractFrames(videoPath, workDir, durationSec) {
-  const fps = Math.max(0.15, Math.min(1, MAX_FRAMES / Math.max(durationSec || 20, 1)));
+  const fps = Math.max(0.15, Math.min(1, MAX_FRAMES / Math.max(durationSec || 25, 1)));
   const pattern = path.join(workDir, "frame-%02d.jpg");
   await execFileAsync(ffmpegPath, [
     "-i", videoPath,
@@ -101,9 +128,26 @@ async function transcribeWithGroq(groqKey, audioPath) {
     headers: { Authorization: `Bearer ${groqKey}` },
     body: form,
   });
-  if (!res.ok) return ""; // segue sem transcrição se falhar, ainda temos os frames
+  if (!res.ok) return ""; // segue sem transcrição se falhar, ainda pode ter frames
   const data = await res.json();
   return data.text || "";
+}
+
+async function processVideoUrl(videoUrl, workDir, ext, groqKey, durationHint) {
+  const videoPath = path.join(workDir, `video.${ext}`);
+  await fetchToFile(videoUrl, videoPath);
+  const audioPath = path.join(workDir, "audio.mp3");
+  const hasAudio = await extractAudio(videoPath, audioPath);
+  const transcript = hasAudio ? await transcribeWithGroq(groqKey, audioPath) : "";
+  const frames = await extractFrames(videoPath, workDir, durationHint);
+  return { transcript, frames };
+}
+
+async function processAudioOnlyUrl(audioUrl, workDir, groqKey) {
+  const audioPath = path.join(workDir, "audio.mp3");
+  await fetchToFile(audioUrl, audioPath);
+  const transcript = await transcribeWithGroq(groqKey, audioPath);
+  return { transcript, frames: [] };
 }
 
 export default async function handler(req, res) {
@@ -126,29 +170,48 @@ export default async function handler(req, res) {
     return;
   }
 
+  let platform;
+  try {
+    platform = detectPlatform(url);
+  } catch (e) {
+    res.status(400).json({ error: "Link inválido." });
+    return;
+  }
+  if (!platform) {
+    res.status(400).json({ error: "Link não reconhecido. Aceito por enquanto: YouTube, TikTok e Instagram." });
+    return;
+  }
+
   let workDir;
   try {
-    const item = await downloadVideoViaApify(apifyToken, url);
-
     workDir = await fs.mkdtemp(path.join(os.tmpdir(), "recipe-"));
-    const videoPath = path.join(workDir, `video.${item.ext || "mp4"}`);
-    await fetchToFile(item.downloadUrl, videoPath);
+    let title = "";
+    let transcript = "";
+    let frames = [];
 
-    const audioPath = path.join(workDir, "audio.mp3");
-    const hasAudio = await extractAudio(videoPath, audioPath);
-    const transcript = hasAudio ? await transcribeWithGroq(groqKey, audioPath) : "";
-
-    const frames = await extractFrames(videoPath, workDir, item.duration);
+    if (platform === "instagram") {
+      const r = await fetchInstagram(apifyToken, url);
+      title = r.title;
+      ({ transcript, frames } = await processVideoUrl(r.videoUrl, workDir, r.ext, groqKey, r.duration));
+    } else if (platform === "tiktok") {
+      const r = await fetchTikTok(apifyToken, url);
+      title = r.title;
+      ({ transcript, frames } = await processVideoUrl(r.videoUrl, workDir, r.ext, groqKey, r.duration));
+    } else if (platform === "youtube") {
+      const r = await fetchYouTubeAudio(apifyToken, url);
+      title = r.title;
+      ({ transcript, frames } = await processAudioOnlyUrl(r.audioUrl, workDir, groqKey));
+    }
 
     const content = [
       {
         type: "text",
         text:
-          `Isto é de um vídeo de receita culinária (título: "${item.title || ""}"). ` +
-          "Você tem a transcrição do áudio (o que foi falado) e alguns frames do vídeo em ordem " +
-          "(o que aparece escrito/mostrado na tela). Combine as duas fontes pra montar a(s) receita(s) " +
-          "completa(s). Se faltar alguma quantidade explícita, estime com bom senso.\n\n" +
-          (transcript ? `Transcrição do áudio:\n${transcript.slice(0, 6000)}` : "Sem áudio/transcrição disponível — use só os frames."),
+          `Isto é de um vídeo de receita culinária${title ? ` (título: "${title}")` : ""}. ` +
+          "Você tem a transcrição do áudio (o que foi falado) e, se disponível, alguns frames do vídeo em " +
+          "ordem (o que aparece escrito/mostrado na tela). Combine as fontes disponíveis pra montar a(s) " +
+          "receita(s) completa(s). Se faltar alguma quantidade explícita, estime com bom senso.\n\n" +
+          (transcript ? `Transcrição do áudio:\n${transcript.slice(0, 6000)}` : "Sem áudio/transcrição disponível — use só os frames, se houver."),
       },
       ...frames.map((data) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } })),
     ];
