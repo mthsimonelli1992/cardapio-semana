@@ -11,8 +11,6 @@ import {
   extractResultFromItem,
   processVideoUrl,
   processAudioOnlyUrl,
-  getApifyProxyDispatcher,
-  YT_DOWNLOAD_HEADERS,
 } from "../lib/videoImport.js";
 import { callClaudeForRecipes } from "../lib/recipeTool.js";
 
@@ -23,7 +21,6 @@ export default async function handler(req, res) {
   }
 
   const apifyToken = process.env.APIFY_API_TOKEN;
-  const apifyProxyPassword = process.env.APIFY_PROXY_PASSWORD;
   const groqKey = process.env.GROQ_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!apifyToken || !groqKey || !anthropicKey) {
@@ -62,11 +59,9 @@ export default async function handler(req, res) {
     let workDir;
     try {
       workDir = await fs.mkdtemp(path.join(os.tmpdir(), "recipe-"));
-      const dispatcher = extracted.needsProxy && apifyProxyPassword ? getApifyProxyDispatcher(apifyProxyPassword) : undefined;
-      const headers = extracted.needsProxy ? YT_DOWNLOAD_HEADERS : undefined;
       const { transcript, frames } = extracted.audioOnly
-        ? await processAudioOnlyUrl(extracted.mediaUrl, workDir, groqKey, dispatcher, headers)
-        : await processVideoUrl(extracted.mediaUrl, workDir, extracted.ext, groqKey, extracted.duration, dispatcher, headers);
+        ? await processAudioOnlyUrl(extracted.mediaUrl, workDir, groqKey)
+        : await processVideoUrl(extracted.mediaUrl, workDir, extracted.ext, groqKey, extracted.duration);
       console.error("[import] transcript.length:", transcript.length, "frames:", frames.length);
 
       const content = [

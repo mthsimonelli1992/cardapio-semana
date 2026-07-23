@@ -7,7 +7,6 @@
     "node": "20.x"
   },
   "dependencies": {
-    "ffmpeg-static": "^5.2.0",
-    "undici": "^7.10.0"
+    "ffmpeg-static": "^5.2.0"
   }
 }
