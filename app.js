@@ -309,17 +309,12 @@ function daysHtml(weekKey, weekDates, applyLock) {
     const activeCount = ["almoco", "jantar"].filter((m) => day[m].emCasa).length;
     const pillText = activeCount === 0 ? "sem refeições em casa" : `${activeCount} refeição(ões) em casa`;
     const dishIcons = ["almoco", "jantar"]
-      .flatMap((meal) => (day[meal].emCasa ? day[meal].recipeIds : []))
-      .map((rid) => {
-        const recipe = state.recipes.find((r) => r.id === rid);
-        const cat = recipe ? CATEGORY_INFO[recipe.category] : null;
-        return cat ? iconHtml(cat.icon) : recipe ? iconHtml("soup") : null;
-      })
+      .map((meal) => (day[meal].emCasa && day[meal].recipeIds.length ? iconHtml(meal === "almoco" ? "sun" : "moon") : null))
       .filter(Boolean)
       .join(" ");
     const isToday = weekDates[i].toDateString() === todayStr;
     return `
-      <details class="day-card ${activeCount > 0 ? "has-meals" : ""}" ${activeCount > 0 ? "open" : ""}>
+      <details class="day-card ${activeCount > 0 ? "has-meals" : ""}">
         <summary>
           <div class="day-heading">
             <div class="day-num ${isToday ? "today" : ""}">${weekDates[i].getDate()}</div>
@@ -417,14 +412,15 @@ function renderInicio() {
       .map((meal) => {
         const m = selectedData[meal];
         const label = meal === "almoco" ? `${iconHtml("sun")} Almoço` : `${iconHtml("moon")} Jantar`;
-        if (m.emCasa && m.recipeIds.length) {
-          const names = m.recipeIds
-            .map((rid) => state.recipes.find((r) => r.id === rid)?.name)
-            .filter(Boolean)
-            .join(", ");
-          return `<div class="inicio-meal-line"><span>${label}</span><strong>${names}</strong></div>`;
-        }
-        return `<div class="inicio-meal-line inicio-meal-empty"><span>${label}</span><span>não planejado</span></div>`;
+        const dishesHtml =
+          m.emCasa && m.recipeIds.length
+            ? `<div class="inicio-meal-dishes">${m.recipeIds
+                .map((rid) => state.recipes.find((r) => r.id === rid)?.name)
+                .filter(Boolean)
+                .map((name) => `<div class="inicio-dish-line">${name}</div>`)
+                .join("")}</div>`
+            : `<div class="inicio-meal-dishes"><div class="inicio-dish-line inicio-dish-empty">Não planejado</div></div>`;
+        return `<div class="inicio-meal-block"><div class="inicio-meal-block-label">${label}</div>${dishesHtml}</div>`;
       })
       .join("");
     const dayLabel = inicioSelectedDayKey === todayKey ? "Hoje" : DAYS[selectedIdx].label;
@@ -997,7 +993,7 @@ function openRecipeDetail(id) {
       <h2 class="recipe-detail-name">${recipe.name}</h2>
       <div class="person-meta">Rende ${recipe.baseServings} porç.</div>
       <span class="field-label">Ingredientes</span>
-      <ul class="recipe-ing-list">${recipe.ingredients.map((i) => `<li>${i.qty} ${i.unit} — ${i.name}</li>`).join("")}</ul>
+      <ul class="recipe-ing-list">${recipe.ingredients.map((i) => `<li>${i.qty} ${i.unit} — ${capitalizeFirst(i.name)}</li>`).join("")}</ul>
       ${instructionsHtml}
       <div class="action-row">
         <button class="btn btn-secondary" onclick="closeRecipeDetail(); openEditRecipeModal('${id}')">editar</button>
@@ -1123,12 +1119,12 @@ function removeIngRow(idx) {
   renderNewRecipeIngredients();
 }
 function saveNewRecipe() {
-  const name = document.getElementById("nr-name").value.trim();
+  const name = capitalizeFirst(document.getElementById("nr-name").value.trim());
   const category = document.getElementById("nr-category").value;
   const baseServings = Math.max(1, parseInt(document.getElementById("nr-servings").value) || 1);
   const ingredients = newRecipeIngredients
     .filter((i) => i.name.trim() && i.qty)
-    .map((i) => ({ name: i.name.trim(), qty: parseFloat(i.qty), unit: i.unit.trim() || "un" }));
+    .map((i) => ({ name: capitalizeFirst(i.name.trim()), qty: parseFloat(i.qty), unit: i.unit.trim() || "un" }));
   const instructions = document
     .getElementById("nr-instructions")
     .value.split("\n")
@@ -1515,7 +1511,7 @@ function renderImportReview(recipes, source) {
                   )
                   .join(" ")}</div>`
               : "";
-            return `<li>${i.quantidade} ${i.unidade} — ${i.nome}${suggestionHtml}</li>`;
+            return `<li>${i.quantidade} ${i.unidade} — ${capitalizeFirst(i.nome)}${suggestionHtml}</li>`;
           })
           .join("")}
       </ul>
@@ -1540,11 +1536,11 @@ function acceptImportedRecipe(idx) {
   const id = r.nome.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Date.now();
   state.recipes.push({
     id,
-    name: r.nome,
+    name: capitalizeFirst(r.nome),
     category: r.categoria,
     baseServings: Math.max(1, parseInt(r.rende_porcoes) || 4),
     ingredients: (r.ingredientes || []).map((i) => ({
-      name: i.nome,
+      name: capitalizeFirst(i.nome),
       qty: Number(i.quantidade) || 1,
       unit: i.unidade || "un",
     })),
@@ -1593,13 +1589,18 @@ function computeAggregatedIngredients() {
         const scale = factor / recipe.baseServings;
         recipe.ingredients.forEach((ing) => {
           const key = ing.name.toLowerCase() + "||" + ing.unit;
-          if (!totals[key]) totals[key] = { name: ing.name, unit: ing.unit, qty: 0 };
+          if (!totals[key]) totals[key] = { name: capitalizeFirst(ing.name), unit: ing.unit, qty: 0 };
           totals[key].qty += ing.qty * scale;
         });
       });
     });
   });
   return Object.values(totals).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+}
+
+function capitalizeFirst(str) {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 function formatQty(qty) {
@@ -1714,8 +1715,10 @@ function renderShoppingList() {
         return `
         <label class="check-item ${checked ? "checked" : ""}">
           <input type="checkbox" ${checked ? "checked" : ""} onchange="toggleChecklistItem('${key}')" />
-          <span class="item-name">${item.name}</span>
-          <span class="item-qty">${getMarketPurchaseText(item)}</span>
+          <div class="check-item-body">
+            <span class="item-name">${item.name}</span>
+            <span class="item-qty">${getMarketPurchaseText(item)}</span>
+          </div>
         </label>
       `;
       })

@@ -229,8 +229,10 @@ h1, h2, h3 {
   border-radius: var(--radius);
   padding: 14px 16px;
   font-family: inherit;
-  font-weight: 600;
-  font-size: 0.92rem;
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   color: var(--green-deep);
   cursor: pointer;
 }
@@ -259,7 +261,6 @@ h1, h2, h3 {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Fraunces', serif;
   font-weight: 700;
   color: var(--ink);
   border: 1px solid transparent;
@@ -280,8 +281,10 @@ h1, h2, h3 {
   background: none;
   border: none;
   font-family: inherit;
-  font-weight: 600;
-  font-size: 0.78rem;
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--green-deep);
   cursor: pointer;
   padding: 4px 0;
@@ -289,23 +292,24 @@ h1, h2, h3 {
   white-space: nowrap;
 }
 .inicio-today-date {
-  font-family: 'Fraunces', serif;
-  font-size: 1.55rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  text-transform: capitalize;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
   margin: 2px 0 12px;
 }
-.inicio-meal-line {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-  border-top: 1px solid var(--line);
+.inicio-meal-block { padding: 10px 0; border-top: 1px solid var(--line); }
+.inicio-meal-block:first-of-type { border-top: none; }
+.inicio-meal-block-label { font-size: 0.9rem; font-weight: 600; margin-bottom: 6px; }
+.inicio-meal-dishes { display: flex; flex-direction: column; }
+.inicio-dish-line {
   font-size: 0.9rem;
+  font-weight: 600;
+  padding: 6px 0 6px 28px;
+  border-top: 1px dashed var(--line);
 }
-.inicio-meal-line:first-of-type { border-top: none; }
-.inicio-meal-empty { color: var(--ink-soft); font-style: italic; }
+.inicio-dish-line:first-child { border-top: none; padding-top: 0; }
+.inicio-dish-empty { color: var(--ink-soft); font-weight: 400; font-style: italic; }
 
 .inicio-quick-actions { display: flex; gap: 10px; margin-bottom: 22px; }
 .inicio-quick-btn {
@@ -319,8 +323,10 @@ h1, h2, h3 {
   border-radius: var(--radius);
   padding: 14px 8px;
   font-family: inherit;
-  font-weight: 600;
-  font-size: 0.82rem;
+  font-weight: 700;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   color: var(--green-deep);
   cursor: pointer;
 }
@@ -349,7 +355,6 @@ h1, h2, h3 {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Fraunces', serif;
   font-weight: 700;
   font-size: 1.05rem;
   color: var(--ink-soft);
@@ -357,12 +362,12 @@ h1, h2, h3 {
 }
 .day-num.today { background: var(--terracotta); border-color: var(--terracotta); color: white; }
 .day-name {
-  font-family: 'Fraunces', serif;
-  font-size: 1.2rem;
-  font-weight: 600;
-  letter-spacing: -0.005em;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
-.day-dish-preview { font-size: 1rem; margin-top: 3px; letter-spacing: 2px; }
+.day-dish-preview { display: flex; gap: 6px; margin-top: 4px; color: var(--ink-soft); }
 .day-summary-pill {
   font-size: 0.72rem;
   font-weight: 600;
@@ -545,8 +550,10 @@ select:focus, input:focus, textarea:focus {
   align-items: center;
   gap: 6px;
   font-family: inherit;
-  font-size: 0.76rem;
-  font-weight: 600;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
   color: var(--ink-soft);
   background: none;
   border: none;
@@ -579,8 +586,10 @@ select:focus, input:focus, textarea:focus {
 /* ---- Buttons ---- */
 .btn {
   font-family: inherit;
-  font-weight: 600;
-  font-size: 0.88rem;
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   border: none;
   border-radius: 8px;
   padding: 12px 18px;
@@ -591,7 +600,7 @@ select:focus, input:focus, textarea:focus {
 .btn-primary { background: var(--green); color: white; box-shadow: 0 4px 10px -4px rgba(62,92,62,0.5); }
 .btn-primary:hover { background: var(--green-deep); }
 .btn-secondary { background: var(--paper-raised); color: var(--ink); border: 1px solid var(--line); }
-.btn-ghost { background: none; color: var(--green-deep); padding: 8px 4px; font-family: inherit; font-weight: 600; cursor: pointer; border: none; }
+.btn-ghost { background: none; color: var(--green-deep); padding: 8px 4px; font-family: inherit; font-weight: 700; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.03em; cursor: pointer; border: none; }
 .btn-block { width: 100%; }
 .btn-danger-ghost { background: none; color: var(--plum); border: none; font-size: 0.8rem; font-weight: 600; cursor: pointer; padding: 4px 8px; font-family: inherit; }
 
@@ -606,7 +615,7 @@ select:focus, input:focus, textarea:focus {
   box-shadow: var(--shadow);
 }
 .recipe-card-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.recipe-name { font-family: 'Fraunces', serif; font-size: 1.1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.01em; display: flex; align-items: center; gap: 6px; }
+.recipe-name { font-size: 1.02rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; display: flex; align-items: center; gap: 6px; }
 .recipe-name .platform-icon { flex-shrink: 0; }
 .recipe-category-tag { font-size: 0.78rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.03em; }
 .recipe-thumb {
@@ -772,15 +781,14 @@ select:focus, input:focus, textarea:focus {
   width: 56px; height: 56px;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-family: 'Fraunces', serif;
   font-weight: 700;
-  font-size: 1.3rem;
+  font-size: 1.2rem;
   color: white;
   flex-shrink: 0;
   box-shadow: 0 3px 8px -2px rgba(42,42,34,0.35);
 }
 .person-info { flex: 1; min-width: 0; }
-.person-name { font-family: 'Fraunces', serif; font-size: 1.2rem; font-weight: 600; letter-spacing: -0.005em; margin-bottom: 5px; }
+.person-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 5px; }
 .person-badge {
   display: inline-block;
   font-size: 0.72rem;
@@ -818,19 +826,21 @@ select:focus, input:focus, textarea:focus {
 
 .check-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
-  padding: 11px 4px;
+  padding: 12px 4px;
   border-bottom: 1px solid var(--line);
 }
 .check-item input[type="checkbox"] {
   width: 21px; height: 21px;
+  margin-top: 1px;
   accent-color: var(--green);
   flex-shrink: 0;
 }
 .check-item.checked .item-name { text-decoration: line-through; color: var(--ink-soft); }
-.item-name { font-weight: 600; font-size: 0.92rem; flex: 1; }
-.item-qty { font-size: 0.82rem; color: var(--ink-soft); white-space: nowrap; }
+.check-item-body { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.item-name { font-weight: 600; font-size: 0.92rem; }
+.item-qty { font-size: 0.82rem; color: var(--ink-soft); }
 
 .empty-state {
   text-align: center;
@@ -897,7 +907,7 @@ select:focus, input:focus, textarea:focus {
   border-radius: 999px;
   background: var(--line);
 }
-.modal-sheet h2 { margin-bottom: 14px; }
+.modal-sheet h2 { margin-bottom: 14px; text-transform: uppercase; font-size: 1.2rem; letter-spacing: 0.01em; }
 
 .picker-source-toggle {
   display: flex;
@@ -930,8 +940,10 @@ select:focus, input:focus, textarea:focus {
   border-radius: 10px;
   padding: 11px;
   font-family: inherit;
-  font-weight: 600;
-  font-size: 0.88rem;
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   color: var(--green-deep);
   cursor: pointer;
 }
