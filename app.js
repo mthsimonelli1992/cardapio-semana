@@ -47,6 +47,21 @@ function normalizeState(parsed) {
   if (!s.recipes) {
     s.recipes = structuredClone(SEED_RECIPES);
   } else {
+    // Café da manhã saiu do banco inicial — remove as receitas seed antigas dessa categoria
+    // que já tinham sido salvas em contas criadas antes dessa mudança.
+    s.recipes = s.recipes.filter((r) => r.category !== "café da manhã");
+
+    // Contas criadas antes da gente adicionar "modo de preparo" ao banco inicial salvaram as
+    // receitas seed sem essa informação — completa usando o texto atual do SEED_RECIPES pra
+    // quem ainda não tem instructions, sem mexer em nome/ingredientes que o usuário já editou.
+    const seedById = new Map(SEED_RECIPES.map((r) => [r.id, r]));
+    s.recipes.forEach((r) => {
+      const seed = seedById.get(r.id);
+      if (seed && (!r.instructions || r.instructions.length === 0)) {
+        r.instructions = structuredClone(seed.instructions);
+      }
+    });
+
     // Preenche com receitas novas do banco inicial que ainda não estão salvas (ex: usuário já
     // tinha conta antes de expandirmos o SEED_RECIPES) — nunca sobrescreve o que já existe.
     const existingIds = new Set(s.recipes.map((r) => r.id));
@@ -1527,6 +1542,7 @@ async function enterApp(user) {
   document.getElementById("auth-screen").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
   state = await loadStateFromDB(currentUserId);
+  saveState();
   renderPlanner();
   renderPeople();
   renderRecipes();
