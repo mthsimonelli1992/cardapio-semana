@@ -962,6 +962,10 @@ const SOURCE_ICON = {
   video: `${iconHtml("video", 14)} Vídeo enviado`,
 };
 
+// Rótulo de origem só em texto puro (sem HTML) — usado na lista/cardápio compartilhado por
+// WhatsApp e no PDF, pra dar crédito de onde a receita veio sem repetir o link inteiro.
+const PLATFORM_LABEL = { instagram: "Instagram", tiktok: "TikTok", youtube: "YouTube", web: "site" };
+
 function openRecipeDetail(id) {
   const recipe = state.recipes.find((r) => r.id === id);
   if (!recipe) return;
@@ -1793,33 +1797,33 @@ async function copyHistoryEntry(idx) {
   alert("Copiado! Cole onde quiser.");
 }
 
-// Monta o cardápio dia a dia com os ingredientes já escalados de cada prato,
-// pra ir junto da lista de compras — assim quem recebe sabe o que cozinhar, não só o que comprar.
+// Nome do prato pra exibição compacta, com a origem entre parênteses quando veio de fora
+// (ex: "Macarrão ao Limone (Instagram)") — sem repetir link inteiro, só pra dar crédito.
+function dishLabel(recipe) {
+  const tag = recipe.sourcePlatform && PLATFORM_LABEL[recipe.sourcePlatform] ? ` (${PLATFORM_LABEL[recipe.sourcePlatform]})` : "";
+  return `${recipe.name}${tag}`;
+}
+
+// Monta o cardápio dia a dia, só com os nomes dos pratos (os ingredientes já estão na lista de
+// compras — repetir aqui só deixaria o texto mais longo sem informação nova). Uma linha por dia.
 function buildWeekMenuText() {
   const week = getWeek(getCurrentWeekKey());
-  const dayBlocks = DAYS.map((d) => {
+  const dayLines = DAYS.map((d) => {
     const day = week[d.key];
-    const mealBlocks = ["almoco", "jantar"]
+    const mealParts = ["almoco", "jantar"]
       .filter((meal) => day[meal].emCasa && day[meal].recipeIds.length)
       .map((meal) => {
-        const m = day[meal];
         const mealLabel = meal === "almoco" ? "Almoço" : "Jantar";
-        const factor = computeMealFactor(m);
-        const dishLines = m.recipeIds
-          .map((rid) => {
-            const recipe = state.recipes.find((r) => r.id === rid);
-            if (!recipe) return null;
-            const scale = factor / recipe.baseServings;
-            const ingLine = recipe.ingredients.map((ing) => `${formatQty(ing.qty * scale)} ${ing.unit} ${ing.name}`).join(", ");
-            return `    ${recipe.name} — ${ingLine}`;
-          })
+        const dishNames = day[meal].recipeIds
+          .map((rid) => state.recipes.find((r) => r.id === rid))
           .filter(Boolean)
-          .join("\n");
-        return `  ${mealLabel}:\n${dishLines}`;
+          .map(dishLabel)
+          .join(", ");
+        return `${mealLabel}: ${dishNames}`;
       });
-    return mealBlocks.length ? `${d.label}:\n${mealBlocks.join("\n")}` : null;
+    return mealParts.length ? `${d.label} — ${mealParts.join(" · ")}` : null;
   }).filter(Boolean);
-  return dayBlocks.length ? "🍽️ Cardápio da semana:\n\n" + dayBlocks.join("\n\n") : "";
+  return dayLines.length ? "🍽️ Cardápio da semana:\n" + dayLines.join("\n") : "";
 }
 
 async function shareList() {
@@ -1865,7 +1869,8 @@ async function exportListPdf() {
   const PAPER = rgb(0.949, 0.937, 0.894);
   const pageWidth = 595.28;
   const pageHeight = 841.89;
-  const margin = 50;
+  const margin = 44;
+  const usableWidth = pageWidth - margin * 2;
 
   const pdfDoc = await PDFDocument.create();
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -1873,35 +1878,26 @@ async function exportListPdf() {
   const form = pdfDoc.getForm();
 
   function newPage() {
-    const page = pdfDoc.addPage([pageWidth, pageHeight]);
-    page.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: PAPER });
-    return page;
+    const p = pdfDoc.addPage([pageWidth, pageHeight]);
+    p.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: PAPER });
+    return p;
   }
-  function drawHeader(page, title, subtitle) {
-    page.drawRectangle({ x: 0, y: pageHeight - 90, width: pageWidth, height: 90, color: GREEN });
-    page.drawText(title, { x: margin, y: pageHeight - 55, size: 22, font: fontBold, color: rgb(1, 1, 1) });
-    page.drawText(subtitle, { x: margin, y: pageHeight - 74, size: 10, font, color: rgb(1, 1, 1) });
-    return pageHeight - 120;
+  function drawHeader(p, title, subtitle) {
+    p.drawRectangle({ x: 0, y: pageHeight - 68, width: pageWidth, height: 68, color: GREEN });
+    p.drawText(title, { x: margin, y: pageHeight - 40, size: 17, font: fontBold, color: rgb(1, 1, 1) });
+    p.drawText(subtitle, { x: margin, y: pageHeight - 55, size: 8.5, font, color: rgb(1, 1, 1) });
+    return pageHeight - 90;
+  }
+  function drawSectionLabel(p, text, yPos) {
+    p.drawText(text.toUpperCase(), { x: margin, y: yPos, size: 9.5, font: fontBold, color: GREEN_DEEP });
+    return yPos - 15;
   }
 
-  // ---- Lista de compras com checkbox clicável ----
   let page = newPage();
-  let y = drawHeader(page, "Lista de Compras", `Semana gerada em ${new Date().toLocaleDateString("pt-BR")}`);
-  let checkboxIdx = 0;
+  let y = drawHeader(page, "Cardápio & Lista da Semana", `Gerado em ${new Date().toLocaleDateString("pt-BR")}`);
 
-  items.forEach((item) => {
-    if (y < margin + 30) {
-      page = newPage();
-      y = pageHeight - margin;
-    }
-    const cb = form.createCheckBox(`item_${checkboxIdx++}`);
-    cb.addToPage(page, { x: margin, y: y - 10, width: 14, height: 14, borderColor: GREEN_DEEP, borderWidth: 1 });
-    page.drawText(item.name, { x: margin + 22, y: y - 8, size: 12, font: fontBold, color: INK });
-    page.drawText(getMarketPurchaseText(item), { x: margin + 22, y: y - 23, size: 9.5, font, color: INK_SOFT });
-    y -= 38;
-  });
-
-  // ---- Cardápio da semana (informativo, sem checkbox) ----
+  // ---- Cardápio compacto (só os nomes dos pratos — ingredientes já estão na lista abaixo,
+  // repetir aqui só deixaria o documento mais longo sem informação nova) ----
   const currentWeek = getWeek(getCurrentWeekKey());
   const menuDays = DAYS.map((d) => {
     const day = currentWeek[d.key];
@@ -1911,29 +1907,69 @@ async function exportListPdf() {
         const dishNames = day[meal].recipeIds
           .map((rid) => state.recipes.find((r) => r.id === rid))
           .filter(Boolean)
-          .map((r) => r.name);
-        return { mealLabel: meal === "almoco" ? "Almoço" : "Jantar", dishNames };
+          .map(dishLabel)
+          .join(", ");
+        return `${meal === "almoco" ? "Almoço" : "Jantar"}: ${dishNames}`;
       });
     return meals.length ? { label: d.label, meals } : null;
   }).filter(Boolean);
 
   if (menuDays.length) {
-    page = newPage();
-    y = drawHeader(page, "Cardápio da Semana", "O que vai ser cozinhado em cada dia");
+    y = drawSectionLabel(page, "Cardápio da semana", y);
+    const dayColX = margin + 58;
     menuDays.forEach((day) => {
-      if (y < margin + 60) {
+      // Tenta caber os dois turnos numa linha só; se não couber, quebra em duas.
+      const oneLine = day.meals.join("    ");
+      const fitsOneLine = dayColX + font.widthOfTextAtSize(oneLine, 9) <= pageWidth - margin;
+      const linesNeeded = fitsOneLine ? 1 : day.meals.length;
+      if (y < margin + 14 * linesNeeded) {
         page = newPage();
         y = pageHeight - margin;
       }
-      page.drawText(day.label, { x: margin, y, size: 13, font: fontBold, color: GREEN_DEEP });
-      y -= 18;
-      day.meals.forEach((meal) => {
-        page.drawText(`${meal.mealLabel}: ${meal.dishNames.join(", ")}`, { x: margin + 10, y, size: 10.5, font, color: INK });
-        y -= 16;
-      });
-      y -= 8;
+      page.drawText(day.label, { x: margin, y, size: 9.5, font: fontBold, color: INK });
+      if (fitsOneLine) {
+        page.drawText(oneLine, { x: dayColX, y, size: 9, font, color: INK_SOFT });
+        y -= 14;
+      } else {
+        day.meals.forEach((line) => {
+          page.drawText(line, { x: dayColX, y, size: 9, font, color: INK_SOFT });
+          y -= 12;
+        });
+        y -= 2;
+      }
     });
+    y -= 10;
   }
+
+  // ---- Lista de compras com checkbox clicável, em duas colunas pra economizar altura ----
+  y = drawSectionLabel(page, "Lista de compras", y);
+  const colGap = 16;
+  const colWidth = (usableWidth - colGap) / 2;
+  const col2X = margin + colWidth + colGap;
+  const rowHeight = 29;
+  const listTopY = y;
+  let checkboxIdx = 0;
+  let colX = margin;
+  let rowY = listTopY;
+
+  items.forEach((item) => {
+    if (rowY < margin + rowHeight - 8) {
+      if (colX === margin) {
+        colX = col2X;
+        rowY = listTopY;
+      } else {
+        page = newPage();
+        y = drawSectionLabel(page, "Lista de compras (continuação)", pageHeight - margin);
+        colX = margin;
+        rowY = y;
+      }
+    }
+    const cb = form.createCheckBox(`item_${checkboxIdx++}`);
+    cb.addToPage(page, { x: colX, y: rowY - 9, width: 11, height: 11, borderColor: GREEN_DEEP, borderWidth: 1 });
+    page.drawText(item.name, { x: colX + 17, y: rowY - 7, size: 10, font: fontBold, color: INK });
+    page.drawText(getMarketPurchaseText(item), { x: colX + 17, y: rowY - 19, size: 8, font, color: INK_SOFT });
+    rowY -= rowHeight;
+  });
 
   const pdfBytes = await pdfDoc.save();
   const blob = new Blob([pdfBytes], { type: "application/pdf" });
