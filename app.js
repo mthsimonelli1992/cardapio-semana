@@ -596,11 +596,14 @@ function togglePersonInMeal(weekKey, dayKey, meal, personId) {
 // ===== Escolher receita (sobretela pra adicionar prato numa refeição) =====
 let recipePickerTarget = null;
 let recipePickerCategory = "todas";
+let recipePickerSource = "mine"; // "mine" | "base"
 
 function openRecipePicker(weekKey, dayKey, meal) {
   recipePickerTarget = { weekKey, dayKey, meal };
   recipePickerCategory = "todas";
+  recipePickerSource = "mine";
   document.getElementById("recipe-picker-search").value = "";
+  renderRecipePickerSourceToggle();
   renderRecipePickerFilters();
   renderRecipePickerList();
   showModal("modal-recipe-picker");
@@ -615,6 +618,21 @@ function setRecipePickerCategory(cat) {
   recipePickerCategory = cat;
   renderRecipePickerFilters();
   renderRecipePickerList();
+}
+
+function setRecipePickerSource(source) {
+  recipePickerSource = source;
+  renderRecipePickerSourceToggle();
+  renderRecipePickerList();
+}
+
+function renderRecipePickerSourceToggle() {
+  const el = document.getElementById("recipe-picker-source");
+  if (!el) return;
+  el.innerHTML = `
+    <button type="button" class="picker-source-btn ${recipePickerSource === "mine" ? "active" : ""}" onclick="setRecipePickerSource('mine')">Minha biblioteca</button>
+    <button type="button" class="picker-source-btn ${recipePickerSource === "base" ? "active" : ""}" onclick="setRecipePickerSource('base')">Banco de receitas</button>
+  `;
 }
 
 function renderRecipePickerFilters() {
@@ -635,7 +653,7 @@ function renderRecipePickerList() {
   const query = (document.getElementById("recipe-picker-search").value || "").trim().toLowerCase();
   const seedIds = new Set(SEED_RECIPES.map((r) => r.id));
 
-  let filtered = state.recipes;
+  let filtered = state.recipes.filter((r) => (recipePickerSource === "mine" ? !seedIds.has(r.id) : seedIds.has(r.id)));
   if (recipePickerCategory !== "todas") filtered = filtered.filter((r) => r.category === recipePickerCategory);
   if (query) filtered = filtered.filter((r) => r.name.toLowerCase().includes(query));
 
@@ -653,13 +671,9 @@ function renderRecipePickerList() {
     `;
   };
 
-  const mine = filtered.filter((r) => !seedIds.has(r.id));
-  const base = filtered.filter((r) => seedIds.has(r.id));
-
-  let html = "";
-  if (mine.length) html += `<div class="recipe-picker-section-label">Minhas receitas</div>${mine.map(rowHtml).join("")}`;
-  if (base.length) html += `<div class="recipe-picker-section-label">Banco de receitas</div>${base.map(rowHtml).join("")}`;
-  container.innerHTML = html || `<div class="empty-state"><span class="glyph">🔍</span>Nenhuma receita encontrada.</div>`;
+  container.innerHTML = filtered.length
+    ? filtered.map(rowHtml).join("")
+    : `<div class="empty-state"><span class="glyph">🔍</span>Nenhuma receita encontrada.</div>`;
 }
 
 function pickRecipeForMeal(recipeId) {
