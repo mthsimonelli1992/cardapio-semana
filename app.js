@@ -481,7 +481,6 @@ function saveNewPerson() {
 
 // ===== Gestão de receitas =====
 const CATEGORY_INFO = {
-  "café da manhã": { icon: "🍳", color: "var(--mustard)" },
   "prato principal": { icon: "🍽️", color: "var(--green)" },
   acompanhamento: { icon: "🥗", color: "var(--plum)" },
   sobremesa: { icon: "🍰", color: "var(--terracotta)" },
@@ -555,7 +554,7 @@ function renderRecipes() {
       <div class="recipe-thumb" style="background:${cat.color}">${cat.icon}</div>
       <div style="flex:1">
         <div class="recipe-name">${r.name} ${sourceTag}</div>
-        <div class="person-meta">${r.category}</div>
+        <div class="recipe-category-tag">${r.category}</div>
       </div>
       <span class="recipe-card-chevron">›</span>
     </div>
@@ -604,7 +603,11 @@ function openRecipeDetail(id) {
   const coverInner = recipe.coverImage
     ? `<div class="recipe-detail-cover" style="background-image:url('${recipe.coverImage}')"></div>`
     : `<div class="recipe-detail-cover recipe-detail-cover-illustration" style="background:${cat.color}"><span>${cat.icon}</span></div>`;
-  const cover = `<div class="recipe-detail-cover-wrap">${coverInner}<button type="button" class="modal-x recipe-detail-close" onclick="closeRecipeDetail()">✕</button></div>`;
+  const canRefreshCover = recipe.sourceUrl && (recipe.sourcePlatform === "instagram" || recipe.sourcePlatform === "tiktok");
+  const refreshCoverBtn = canRefreshCover
+    ? `<button type="button" id="cover-refresh-btn" class="modal-x recipe-cover-refresh" title="Atualizar capa" onclick="refreshRecipeCover('${id}')">🔄</button>`
+    : "";
+  const cover = `<div class="recipe-detail-cover-wrap">${coverInner}<button type="button" class="modal-x recipe-detail-close" onclick="closeRecipeDetail()">✕</button>${refreshCoverBtn}</div>`;
   const isBrand = recipe.sourcePlatform && BRAND_ICONS[recipe.sourcePlatform];
   const sourceBadge =
     recipe.sourceUrl && recipe.sourcePlatform
@@ -616,15 +619,10 @@ function openRecipeDetail(id) {
     recipe.instructions && recipe.instructions.length
       ? `<span class="field-label">Modo de preparo</span><ol class="recipe-steps-list">${recipe.instructions.map((s) => `<li>${s}</li>`).join("")}</ol>`
       : "";
-  const canRefreshCover = recipe.sourceUrl && (recipe.sourcePlatform === "instagram" || recipe.sourcePlatform === "tiktok");
-  const refreshCoverBtn = canRefreshCover
-    ? `<button type="button" id="cover-refresh-btn" class="btn-ghost" onclick="refreshRecipeCover('${id}')">🔄 Atualizar capa</button><span id="cover-refresh-status" class="cover-refresh-status"></span>`
-    : "";
   document.getElementById("recipe-detail-content").innerHTML = `
     ${cover}
     <div class="recipe-detail-body">
       ${sourceBadge}
-      ${refreshCoverBtn}
       <span class="recipe-detail-category" style="color:${cat.color}">${cat.icon} ${recipe.category}</span>
       <h2 class="recipe-detail-name">${recipe.name}</h2>
       <div class="person-meta">Rende ${recipe.baseServings} porç.</div>
@@ -649,9 +647,10 @@ async function refreshRecipeCover(id) {
   const recipe = state.recipes.find((r) => r.id === id);
   if (!recipe || !recipe.sourceUrl) return;
   const btn = document.getElementById("cover-refresh-btn");
-  const status = document.getElementById("cover-refresh-status");
-  if (btn) btn.disabled = true;
-  if (status) status.textContent = "Buscando a capa de novo...";
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add("spinning");
+  }
   try {
     const startRes = await fetch("/api/refresh-cover-start", {
       method: "POST",
@@ -665,7 +664,6 @@ async function refreshRecipeCover(id) {
     const maxAttempts = 30; // ~2.5 minutos
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       await sleep(5000);
-      if (status) status.textContent = `Buscando a capa de novo... (${attempt * 5}s)`;
       const checkRes = await fetch(`/api/refresh-cover-status?runId=${encodeURIComponent(runId)}&platform=${encodeURIComponent(platform)}`);
       const data = await checkRes.json();
       if (data.status === "running") continue;
@@ -679,10 +677,15 @@ async function refreshRecipeCover(id) {
         return;
       }
     }
-    throw new Error("Demorou demais pra buscar a capa. Tenta de novo.");
+    throw new Error("Demorou demais pra buscar a capa.");
   } catch (e) {
-    if (status) status.textContent = "Erro: " + e.message;
-    if (btn) btn.disabled = false;
+    console.error("[refreshRecipeCover]", e.message);
+    if (btn) {
+      btn.classList.remove("spinning");
+      btn.classList.add("cover-refresh-error");
+      setTimeout(() => btn.classList.remove("cover-refresh-error"), 1500);
+      btn.disabled = false;
+    }
   }
 }
 
@@ -809,11 +812,32 @@ function setImportStatus(text) {
   el.classList.remove("hidden");
 }
 
+let importProgressTimer = null;
+let importProgressPct = 0;
+
 function showImportProgress() {
-  document.getElementById("import-progress").classList.remove("hidden");
+  document.getElementById("import-status").classList.add("hidden");
+  const track = document.getElementById("import-progress");
+  const fill = track.querySelector(".progress-fill");
+  clearInterval(importProgressTimer);
+  importProgressPct = 6;
+  fill.style.width = importProgressPct + "%";
+  track.classList.remove("hidden");
+  importProgressTimer = setInterval(() => {
+    importProgressPct += (92 - importProgressPct) * 0.05;
+    fill.style.width = importProgressPct + "%";
+  }, 400);
 }
 function hideImportProgress() {
-  document.getElementById("import-progress").classList.add("hidden");
+  clearInterval(importProgressTimer);
+  importProgressTimer = null;
+  const track = document.getElementById("import-progress");
+  const fill = track.querySelector(".progress-fill");
+  fill.style.width = "100%";
+  setTimeout(() => {
+    track.classList.add("hidden");
+    fill.style.width = "0%";
+  }, 200);
 }
 
 async function handleImportPdf(event) {
@@ -880,7 +904,6 @@ async function handleImportLink() {
     return;
   }
   document.getElementById("import-review").innerHTML = "";
-  setImportStatus("Iniciando o download do vídeo...");
   showImportProgress();
   try {
     const startRes = await fetch("/api/import-video-start", {
@@ -916,7 +939,6 @@ async function handleImportLink() {
     const maxAttempts = 45; // ~4 minutos no total
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       await sleep(5000);
-      setImportStatus(`Processando o vídeo... (${attempt * 5}s)`);
       const checkRes = await fetch(`/api/import-video-status?runId=${encodeURIComponent(runId)}&platform=${encodeURIComponent(platform)}`);
       const data = await checkRes.json();
 
@@ -1017,7 +1039,6 @@ async function extractRecipesWithAI() {
   }
   const btn = document.getElementById("import-extract-btn");
   document.getElementById("import-review").innerHTML = "";
-  setImportStatus("Consultando a IA...");
   showImportProgress();
   btn.disabled = true;
   try {

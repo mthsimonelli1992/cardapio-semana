@@ -5,9 +5,10 @@ import {
   getApifyRunStatus,
   getApifyDatasetItems,
   extractResultFromItem,
-  fetchVideoCoverFrame,
+  fetchCoverCandidateFrames,
   fetchTikTokThumbnail,
 } from "../lib/videoImport.js";
+import { pickCoverFrame } from "../lib/recipeTool.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -16,6 +17,7 @@ export default async function handler(req, res) {
   }
 
   const apifyToken = process.env.APIFY_API_TOKEN;
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!apifyToken) {
     res.status(500).json({ status: "error", error: "Falta APIFY_API_TOKEN no servidor." });
     return;
@@ -53,8 +55,11 @@ export default async function handler(req, res) {
       let workDir;
       try {
         workDir = await fs.mkdtemp(path.join(os.tmpdir(), "cover-"));
-        const frameB64 = await fetchVideoCoverFrame(extracted.mediaUrl, workDir, extracted.ext);
-        extracted.coverImage = `data:image/jpeg;base64,${frameB64}`;
+        const frames = await fetchCoverCandidateFrames(extracted.mediaUrl, workDir, extracted.ext, extracted.duration);
+        if (frames.length > 0) {
+          const bestIdx = await pickCoverFrame(anthropicKey, frames);
+          extracted.coverImage = `data:image/jpeg;base64,${frames[bestIdx]}`;
+        }
       } finally {
         if (workDir) fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
       }

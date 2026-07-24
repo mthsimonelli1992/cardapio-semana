@@ -13,7 +13,7 @@ import {
   processAudioOnlyUrl,
   fetchTikTokThumbnail,
 } from "../lib/videoImport.js";
-import { callClaudeForRecipes } from "../lib/recipeTool.js";
+import { callClaudeForRecipes, pickCoverFrame } from "../lib/recipeTool.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -69,10 +69,12 @@ export default async function handler(req, res) {
         : await processVideoUrl(extracted.mediaUrl, workDir, extracted.ext, groqKey, extracted.duration);
       console.error("[import] transcript.length:", transcript.length, "frames:", frames.length);
       // Nem todo ator de download devolve thumbnail própria (o do Instagram nunca devolve, por
-      // exemplo). Como já extraímos frames do vídeo pra IA ler, usa o primeiro frame como capa
-      // de última instância — sempre disponível quando há vídeo baixado com sucesso.
+      // exemplo). Como já extraímos frames do vídeo pra IA ler, pede pra ela escolher o frame
+      // que melhor mostra o prato pronto (em vez de sempre pegar o primeiro, que em reels/tiktoks
+      // costuma mostrar o rosto de quem está falando na abertura do vídeo).
       if (!extracted.coverImage && frames.length > 0) {
-        extracted.coverImage = `data:image/jpeg;base64,${frames[0]}`;
+        const bestIdx = await pickCoverFrame(anthropicKey, frames);
+        extracted.coverImage = `data:image/jpeg;base64,${frames[bestIdx]}`;
       }
 
       const content = [

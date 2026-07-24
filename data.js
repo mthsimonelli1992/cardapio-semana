@@ -275,37 +275,6 @@ const SEED_RECIPES = [
       "Adicione a abobrinha, tempere com sal e cozinhe por mais 5-6 minutos, até os legumes ficarem macios mas com textura.",
     ],
   },
-  {
-    id: "tapioca",
-    name: "Tapioca",
-    category: "café da manhã",
-    baseServings: 1,
-    ingredients: [
-      { name: "Goma de tapioca", qty: 60, unit: "g" },
-      { name: "Queijo coalho", qty: 30, unit: "g" },
-    ],
-    instructions: [
-      "Peneire a goma de tapioca numa frigideira antiaderente já quente, formando um disco fino e uniforme.",
-      "Deixe firmar em fogo médio por cerca de 1-2 minutos, até soltar da frigideira.",
-      "Vire, adicione o queijo coalho fatiado ou ralado sobre metade do disco.",
-      "Dobre ao meio e deixe mais 1 minuto até o queijo amolecer.",
-    ],
-  },
-  {
-    id: "pao-com-ovo",
-    name: "Pão com ovo",
-    category: "café da manhã",
-    baseServings: 1,
-    ingredients: [
-      { name: "Pão francês", qty: 1, unit: "unidade" },
-      { name: "Ovo", qty: 1, unit: "unidade" },
-    ],
-    instructions: [
-      "Frite o ovo numa frigideira com um fio de óleo, no ponto que preferir.",
-      "Corte o pão francês ao meio e, se quiser, esquente/toste levemente.",
-      "Coloque o ovo dentro do pão, tempere com sal a gosto e sirva.",
-    ],
-  },
 ];
 
 // Referência de porção padrão por faixa etária/perfil, usada quando a pessoa não tem
