@@ -18,11 +18,15 @@ import {
   processAudioOnlyUrl,
 } from "../lib/videoImport.js";
 import { fetchGenericRecipePage } from "../lib/webRecipe.js";
-import { callClaudeForRecipes } from "../lib/recipeTool.js";
+import { callClaudeForRecipes, knownIngredientsContentBlock } from "../lib/recipeTool.js";
 
-async function finishWithClaude(res, anthropicKey, promptText, platform, coverImage) {
+async function finishWithClaude(res, anthropicKey, promptText, platform, coverImage, knownIngredients) {
   try {
-    const recipes = await callClaudeForRecipes(anthropicKey, [{ type: "text", text: promptText }]);
+    const content = [];
+    const knownBlock = knownIngredientsContentBlock(knownIngredients);
+    if (knownBlock) content.push(knownBlock);
+    content.push({ type: "text", text: promptText });
+    const recipes = await callClaudeForRecipes(anthropicKey, content);
     res.status(200).json({ status: "done", recipes, platform, coverImage: coverImage || null });
   } catch (e) {
     res.status(200).json({ status: "error", error: e.message || "Erro ao processar.", details: e.details });
@@ -53,7 +57,7 @@ export default async function handler(req, res) {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const groqKey = process.env.GROQ_API_KEY;
 
-  const { url } = req.body || {};
+  const { url, knownIngredients } = req.body || {};
   if (!url) {
     res.status(400).json({ error: "Cole um link." });
     return;
@@ -84,7 +88,7 @@ export default async function handler(req, res) {
         "Se faltar alguma quantidade explícita, estime com bom senso. Se não houver receita reconhecível, " +
         "retorne uma lista vazia.\n\n---\n\n" +
         text.slice(0, 15000);
-      await finishWithClaude(res, anthropicKey, promptText, "web", image);
+      await finishWithClaude(res, anthropicKey, promptText, "web", image, knownIngredients);
     } catch (e) {
       res.status(200).json({ status: "error", error: e.message || "Erro ao ler a página.", details: e.details });
     }
@@ -108,7 +112,7 @@ export default async function handler(req, res) {
         "receita reconhecível, retorne uma lista vazia.\n\n" +
         `Transcrição:\n${captionsResult.transcript.slice(0, 8000)}\n\n` +
         (captionsResult.description ? `Descrição:\n${captionsResult.description.slice(0, 3000)}` : "");
-      await finishWithClaude(res, anthropicKey, promptText, "youtube", null);
+      await finishWithClaude(res, anthropicKey, promptText, "youtube", null, knownIngredients);
       return;
     }
 
@@ -125,7 +129,7 @@ export default async function handler(req, res) {
             `${title ? ` (título: "${title}")` : ""}. Use a transcrição (o que foi falado) como fonte. Se ` +
             "faltar alguma quantidade explícita, estime com bom senso. Se não houver receita reconhecível, " +
             `retorne uma lista vazia.\n\nTranscrição:\n${transcript.slice(0, 8000)}`;
-          await finishWithClaude(res, anthropicKey, promptText, "youtube", null);
+          await finishWithClaude(res, anthropicKey, promptText, "youtube", null, knownIngredients);
           return;
         }
       } catch (e) {

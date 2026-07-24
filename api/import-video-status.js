@@ -13,7 +13,7 @@ import {
   processAudioOnlyUrl,
   fetchTikTokThumbnail,
 } from "../lib/videoImport.js";
-import { callClaudeForRecipes, pickCoverFrame } from "../lib/recipeTool.js";
+import { callClaudeForRecipes, pickCoverFrame, knownIngredientsContentBlock } from "../lib/recipeTool.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -29,10 +29,18 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { runId, platform } = req.query;
+  const { runId, platform, knownIngredients: knownIngredientsRaw } = req.query;
   if (!runId || !platform) {
     res.status(400).json({ status: "error", error: "Faltam parâmetros." });
     return;
+  }
+  let knownIngredients = [];
+  if (knownIngredientsRaw) {
+    try {
+      knownIngredients = JSON.parse(knownIngredientsRaw);
+    } catch (e) {
+      knownIngredients = [];
+    }
   }
 
   try {
@@ -77,7 +85,10 @@ export default async function handler(req, res) {
         extracted.coverImage = `data:image/jpeg;base64,${frames[bestIdx]}`;
       }
 
-      const content = [
+      const content = [];
+      const knownBlock = knownIngredientsContentBlock(knownIngredients);
+      if (knownBlock) content.push(knownBlock);
+      content.push(
         {
           type: "text",
           text:
@@ -87,8 +98,8 @@ export default async function handler(req, res) {
             "receita(s) completa(s). Se faltar alguma quantidade explícita, estime com bom senso.\n\n" +
             (transcript ? `Transcrição do áudio:\n${transcript.slice(0, 6000)}` : "Sem áudio/transcrição disponível — use só os frames, se houver."),
         },
-        ...frames.map((data) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } })),
-      ];
+        ...frames.map((data) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } }))
+      );
 
       const recipes = await callClaudeForRecipes(anthropicKey, content);
       res.status(200).json({ status: "done", recipes, platform, coverImage: extracted.coverImage || null });

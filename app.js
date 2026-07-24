@@ -1229,11 +1229,12 @@ async function handleImportLink() {
   }
   document.getElementById("import-review").innerHTML = "";
   showImportProgress();
+  const knownIngredients = Array.from(getKnownIngredientNames().values()).slice(0, 200);
   try {
     const startRes = await fetch("/api/import-video-start", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url, knownIngredients }),
     });
     const startData = await startRes.json();
     if (!startRes.ok) {
@@ -1263,7 +1264,9 @@ async function handleImportLink() {
     const maxAttempts = 45; // ~4 minutos no total
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       await sleep(5000);
-      const checkRes = await fetch(`/api/import-video-status?runId=${encodeURIComponent(runId)}&platform=${encodeURIComponent(platform)}`);
+      const checkRes = await fetch(
+        `/api/import-video-status?runId=${encodeURIComponent(runId)}&platform=${encodeURIComponent(platform)}&knownIngredients=${encodeURIComponent(JSON.stringify(knownIngredients))}`
+      );
       const data = await checkRes.json();
 
       if (data.status === "running") continue;
@@ -1366,8 +1369,9 @@ async function extractRecipesWithAI() {
   showImportProgress();
   btn.disabled = true;
   try {
+    const knownIngredients = Array.from(getKnownIngredientNames().values()).slice(0, 200);
     const url = usingVideo ? "/api/parse-recipe-video" : "/api/parse-recipe";
-    const body = usingVideo ? { frames: pendingVideoFrames, caption: text } : { text };
+    const body = usingVideo ? { frames: pendingVideoFrames, caption: text, knownIngredients } : { text, knownIngredients };
     const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },

@@ -2,7 +2,7 @@
 // de vídeo, ou trecho extraído de um PDF/documento) e usa a IA da Anthropic pra estruturar
 // em uma ou mais receitas no mesmo formato que o app usa. A chave de API só existe aqui no
 // servidor — nunca é exposta pro navegador.
-import { callClaudeForRecipes } from "../lib/recipeTool.js";
+import { callClaudeForRecipes, knownIngredientsContentBlock } from "../lib/recipeTool.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -16,25 +16,27 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { text } = req.body || {};
+  const { text, knownIngredients } = req.body || {};
   if (!text || typeof text !== "string" || text.trim().length < 20) {
     res.status(400).json({ error: "Texto muito curto ou ausente — cole a receita completa." });
     return;
   }
 
   try {
-    const recipes = await callClaudeForRecipes(apiKey, [
-      {
-        type: "text",
-        text:
-          "Extraia todas as receitas culinárias do texto abaixo (pode ser legenda de rede social, " +
-          "transcrição de vídeo, ou trecho de um documento com uma ou várias receitas). Para cada " +
-          "receita, identifique nome, categoria, quantas porções rende e a lista de ingredientes com " +
-          "quantidade numérica e unidade em português. Se não houver nenhuma receita reconhecível, " +
-          "retorne uma lista vazia.\n\n---\n\n" +
-          text.slice(0, 15000),
-      },
-    ]);
+    const content = [];
+    const knownBlock = knownIngredientsContentBlock(knownIngredients);
+    if (knownBlock) content.push(knownBlock);
+    content.push({
+      type: "text",
+      text:
+        "Extraia todas as receitas culinárias do texto abaixo (pode ser legenda de rede social, " +
+        "transcrição de vídeo, ou trecho de um documento com uma ou várias receitas). Para cada " +
+        "receita, identifique nome, categoria, quantas porções rende e a lista de ingredientes com " +
+        "quantidade numérica e unidade em português. Se não houver nenhuma receita reconhecível, " +
+        "retorne uma lista vazia.\n\n---\n\n" +
+        text.slice(0, 15000),
+    });
+    const recipes = await callClaudeForRecipes(apiKey, content);
     res.status(200).json({ recipes });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message, details: e.details || String(e) });

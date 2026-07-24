@@ -1,7 +1,7 @@
 // Função serverless (Vercel) que recebe frames extraídos de um vídeo de receita (no navegador,
 // via canvas) + opcionalmente a legenda do post, e usa a IA (com visão) pra ler o que está
 // escrito na tela (ingredientes, modo de preparo) e estruturar em receita(s).
-import { callClaudeForRecipes, pickCoverFrame } from "../lib/recipeTool.js";
+import { callClaudeForRecipes, pickCoverFrame, knownIngredientsContentBlock } from "../lib/recipeTool.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -15,13 +15,16 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { frames, caption } = req.body || {};
+  const { frames, caption, knownIngredients } = req.body || {};
   if (!Array.isArray(frames) || frames.length === 0) {
     res.status(400).json({ error: "Nenhum frame de vídeo recebido." });
     return;
   }
 
-  const content = [
+  const content = [];
+  const knownBlock = knownIngredientsContentBlock(knownIngredients);
+  if (knownBlock) content.push(knownBlock);
+  content.push(
     {
       type: "text",
       text:
@@ -35,8 +38,8 @@ export default async function handler(req, res) {
     ...frames.slice(0, 8).map((data) => ({
       type: "image",
       source: { type: "base64", media_type: "image/jpeg", data },
-    })),
-  ];
+    }))
+  );
 
   try {
     const recipes = await callClaudeForRecipes(apiKey, content);
