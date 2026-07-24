@@ -9,6 +9,52 @@ const DAYS = [
   { key: "dom", label: "Domingo" },
 ];
 
+// Sistema de ícones em linha (estilo consistente, sem emoji) — cada entrada é o miolo do SVG
+// (sem a tag <svg> em volta), viewBox 24x24, traço de 2px. iconHtml() monta o elemento completo,
+// herdando a cor do texto ao redor (currentColor) pra combinar com qualquer contexto. Fica no
+// topo do arquivo porque vários outros consts (LOCK_LABEL, CATEGORY_INFO, etc.) já chamam
+// iconHtml() na própria inicialização.
+const ICONS = {
+  home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/>',
+  "calendar-plus":
+    '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M12 14v6"/><path d="M9 17h6"/>',
+  users: '<circle cx="8" cy="9" r="3"/><path d="M2 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="7" r="2.3"/><path d="M14.7 12.6c2.6.5 4.3 2.7 4.3 7.4"/>',
+  "book-open": '<path d="M12 6c-2-1.5-5-2-8-1v14c3-1 6-.5 8 1c2-1.5 5-2 8-1V5c-3-1-6-.5-8 1z"/><path d="M12 6v14"/>',
+  basket: '<path d="M4 10h16l-1.5 9a2 2 0 0 1-2 1.7H7.5a2 2 0 0 1-2-1.7L4 10z"/><path d="M8 10l2-6"/><path d="M16 10l-2-6"/><path d="M2 10h20"/>',
+  utensils: '<path d="M6 3v7a2 2 0 0 0 4 0V3"/><path d="M8 10v11"/><path d="M17 3c-1.5 0-2.5 1.5-2.5 4s1 4 2.5 4v10"/>',
+  salad: '<path d="M3 15h18"/><path d="M3 15c0 3.5 4 6 9 6s9-2.5 9-6"/><path d="M12 15c0-4 2-7 5-8"/><path d="M12 15c-1-3-1-6 1-8"/><path d="M4.5 15a7.5 7.5 0 0 1 15 0"/>',
+  cake: '<rect x="3" y="12" width="18" height="8" rx="1"/><path d="M3 16h18"/><path d="M7 12V8a2 2 0 1 1 4 0v4"/><path d="M13 12V8a2 2 0 1 1 4 0v4"/><path d="M12 4v2"/>',
+  soup: '<path d="M3 12h18a7 7 0 0 1-7 7h-4a7 7 0 0 1-7-7z"/><path d="M8 12V9M12 12V7M16 12V9"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>',
+  moon: '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/>',
+  lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  sparkles: '<path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M19 15l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2z"/>',
+  refresh: '<path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"/><path d="M3 21v-5h5"/>',
+  share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.3 10.7l7.4-4.4"/><path d="M8.3 13.3l7.4 4.4"/>',
+  "file-text": '<path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/>',
+  history: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 8v4l3 2"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5-9 9"/>',
+  video: '<rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/>',
+  search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.5-4.5"/>',
+  "chef-hat":
+    '<path d="M6 13a4 4 0 0 1 1-7.9 4 4 0 0 1 5-2.6 4 4 0 0 1 5 2.6 4 4 0 0 1 1 7.9"/><path d="M6 13h12v6a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1z"/><path d="M9 13v2M12 13v2M15 13v2"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/>',
+  "log-out": '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>',
+  plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',
+  x: '<path d="M6 6l12 12"/><path d="M18 6L6 18"/>',
+  edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.07 0l1.71-1.71a5 5 0 0 0-7.07-7.07L10 5.87"/><path d="M14 11a5 5 0 0 0-7.07 0l-1.71 1.71a5 5 0 0 0 7.07 7.07L14 18.13"/>',
+};
+
+function iconHtml(name, size, color) {
+  const inner = ICONS[name];
+  if (!inner) return "";
+  const dim = size ? `${size}px` : "1em";
+  const colorAttr = color || "currentColor";
+  return `<svg class="icon" style="width:${dim};height:${dim}" viewBox="0 0 24 24" fill="none" stroke="${colorAttr}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+}
+
 function emptyMeal() {
   return { emCasa: false, recipeIds: [], peopleIds: [], extra: { adultos: 0, criancas: 0 } };
 }
@@ -267,7 +313,7 @@ function daysHtml(weekKey, weekDates, applyLock) {
       .map((rid) => {
         const recipe = state.recipes.find((r) => r.id === rid);
         const cat = recipe ? CATEGORY_INFO[recipe.category] : null;
-        return cat ? cat.icon : recipe ? "🍲" : null;
+        return cat ? iconHtml(cat.icon) : recipe ? iconHtml("soup") : null;
       })
       .filter(Boolean)
       .join(" ");
@@ -308,7 +354,7 @@ function renderPlanner() {
   if (nextContainer) {
     nextContainer.innerHTML = `
       <button type="button" class="next-week-toggle" onclick="toggleNextWeekSection()">
-        <span>📆 Planejar a próxima semana</span>
+        <span>${iconHtml("calendar-plus")} Planejar a próxima semana</span>
         <span class="next-week-chevron ${nextWeekOpen ? "open" : ""}">›</span>
       </button>
       ${nextWeekOpen ? `<div class="next-week-days">${daysHtml(getNextWeekKey(), getWeekDates(1), false)}</div>` : ""}
@@ -370,7 +416,7 @@ function renderInicio() {
     const mealsHtml = ["almoco", "jantar"]
       .map((meal) => {
         const m = selectedData[meal];
-        const label = meal === "almoco" ? "☀️ Almoço" : "🌙 Jantar";
+        const label = meal === "almoco" ? `${iconHtml("sun")} Almoço` : `${iconHtml("moon")} Jantar`;
         if (m.emCasa && m.recipeIds.length) {
           const names = m.recipeIds
             .map((rid) => state.recipes.find((r) => r.id === rid)?.name)
@@ -403,10 +449,10 @@ function renderInicio() {
     recentContainer.innerHTML = recent.length
       ? recent
           .map((r) => {
-            const cat = CATEGORY_INFO[r.category] || { icon: "🍲", color: "var(--ink-soft)" };
+            const cat = CATEGORY_INFO[r.category] || { icon: "soup", color: "var(--ink-soft)" };
             const thumb = r.coverImage
               ? `<div class="inicio-recipe-thumb" style="background-image:url('${r.coverImage}')"></div>`
-              : `<div class="inicio-recipe-thumb inicio-recipe-thumb-icon" style="background:${cat.color}">${cat.icon}</div>`;
+              : `<div class="inicio-recipe-thumb inicio-recipe-thumb-icon" style="background:${cat.color};color:white">${iconHtml(cat.icon)}</div>`;
             return `
           <div class="inicio-recipe-card" onclick="switchView('receitas'); openRecipeDetail('${r.id}')">
             ${thumb}
@@ -415,7 +461,7 @@ function renderInicio() {
         `;
           })
           .join("")
-      : `<div class="empty-state" style="min-width:100%"><span class="glyph">🍳</span>Nenhuma receita sua importada ou criada ainda.</div>`;
+      : `<div class="empty-state" style="min-width:100%"><span class="glyph">${iconHtml("chef-hat", 36)}</span>Nenhuma receita sua importada ou criada ainda.</div>`;
   }
 }
 
@@ -430,19 +476,19 @@ function renderHeaderStats() {
       if (m.emCasa && m.recipeIds.length) count++;
     });
   });
-  el.textContent =
+  el.innerHTML =
     count === 0
-      ? "🍳 Nenhuma refeição planejada ainda"
-      : `🍳 ${count} refeiç${count > 1 ? "ões" : "ão"} planejada${count > 1 ? "s" : ""} essa semana`;
+      ? `${iconHtml("chef-hat", 14)} Nenhuma refeição planejada ainda`
+      : `${iconHtml("chef-hat", 14)} ${count} refeiç${count > 1 ? "ões" : "ão"} planejada${count > 1 ? "s" : ""} essa semana`;
 }
 
 const LOCK_LABEL = {
-  past: "🔒 já passou",
-  "lunch-cutoff": "🔒 horário do almoço encerrado",
+  past: `${iconHtml("lock", 12)} já passou`,
+  "lunch-cutoff": `${iconHtml("lock", 12)} horário do almoço encerrado`,
 };
 
 function mealRowHtml(weekKey, dayKey, meal, data, lock) {
-  const label = meal === "almoco" ? "☀️ Almoço" : "🌙 Jantar";
+  const label = meal === "almoco" ? `${iconHtml("sun")} Almoço` : `${iconHtml("moon")} Jantar`;
   const locked = lock && lock.locked;
 
   if (locked && !data.emCasa) {
@@ -490,7 +536,7 @@ function mealRowHtml(weekKey, dayKey, meal, data, lock) {
         <select onchange="updateMealDish('${weekKey}','${dayKey}','${meal}',${idx}, this.value)">
           ${recipeOptionsHtml(rid, "todas")}
         </select>
-        <button type="button" class="btn-danger-ghost" onclick="removeMealDish('${weekKey}','${dayKey}','${meal}',${idx})">✕</button>
+        <button type="button" class="btn-danger-ghost" onclick="removeMealDish('${weekKey}','${dayKey}','${meal}',${idx})">${iconHtml("x", 14)}</button>
       </div>
     `
     )
@@ -658,10 +704,10 @@ function renderRecipePickerList() {
   if (query) filtered = filtered.filter((r) => r.name.toLowerCase().includes(query));
 
   const rowHtml = (r) => {
-    const cat = CATEGORY_INFO[r.category] || { icon: "🍲", color: "var(--ink-soft)" };
+    const cat = CATEGORY_INFO[r.category] || { icon: "soup", color: "var(--ink-soft)" };
     return `
       <div class="recipe-card recipe-card-compact" style="--accent:${cat.color}" onclick="pickRecipeForMeal('${r.id}')">
-        <div class="recipe-thumb" style="background:${cat.color}">${cat.icon}</div>
+        <div class="recipe-thumb" style="background:${cat.color};color:white">${iconHtml(cat.icon)}</div>
         <div style="flex:1">
           <div class="recipe-name">${r.name}</div>
           <div class="recipe-category-tag">${r.category}</div>
@@ -673,7 +719,7 @@ function renderRecipePickerList() {
 
   container.innerHTML = filtered.length
     ? filtered.map(rowHtml).join("")
-    : `<div class="empty-state"><span class="glyph">🔍</span>Nenhuma receita encontrada.</div>`;
+    : `<div class="empty-state"><span class="glyph">${iconHtml("search", 36)}</span>Nenhuma receita encontrada.</div>`;
 }
 
 function pickRecipeForMeal(recipeId) {
@@ -717,14 +763,14 @@ const PROFILE_GROUP_COLOR = {
 function renderPeople() {
   const statsEl = document.getElementById("people-stats");
   if (statsEl) {
-    statsEl.textContent =
+    statsEl.innerHTML =
       state.people.length === 0
         ? ""
-        : `👪 ${state.people.length} pessoa${state.people.length > 1 ? "s" : ""} cadastrada${state.people.length > 1 ? "s" : ""}`;
+        : `${iconHtml("users", 14)} ${state.people.length} pessoa${state.people.length > 1 ? "s" : ""} cadastrada${state.people.length > 1 ? "s" : ""}`;
   }
   const container = document.getElementById("people-list");
   if (state.people.length === 0) {
-    container.innerHTML = `<div class="empty-state"><span class="glyph">👪</span>Nenhuma pessoa cadastrada ainda. Cadastre pra escalar as receitas por perfil de porção.</div>`;
+    container.innerHTML = `<div class="empty-state"><span class="glyph">${iconHtml("users", 36)}</span>Nenhuma pessoa cadastrada ainda. Cadastre pra escalar as receitas por perfil de porção.</div>`;
     return;
   }
   container.innerHTML = state.people
@@ -738,7 +784,7 @@ function renderPeople() {
       const avatarColor = PROFILE_GROUP_COLOR[p.profile] || "var(--ink-soft)";
       return `
     <div class="person-card">
-      <button type="button" class="person-remove-btn" onclick="deletePerson('${p.id}')" title="Remover">✕</button>
+      <button type="button" class="person-remove-btn" onclick="deletePerson('${p.id}')" title="Remover">${iconHtml("x", 14)}</button>
       <div class="person-avatar" style="background:${avatarColor}">${initial}</div>
       <div class="person-info">
         <div class="person-name">${p.name}</div>
@@ -804,9 +850,9 @@ function saveNewPerson() {
 
 // ===== Gestão de receitas =====
 const CATEGORY_INFO = {
-  "prato principal": { icon: "🍽️", color: "var(--green)" },
-  acompanhamento: { icon: "🥗", color: "var(--plum)" },
-  sobremesa: { icon: "🍰", color: "var(--terracotta)" },
+  "prato principal": { icon: "utensils", color: "var(--green)" },
+  acompanhamento: { icon: "salad", color: "var(--plum)" },
+  sobremesa: { icon: "cake", color: "var(--terracotta)" },
 };
 
 let recipeFilterCategory = "todas";
@@ -858,7 +904,7 @@ function renderRecipes() {
   renderInicio();
   const container = document.getElementById("recipes-list");
   if (state.recipes.length === 0) {
-    container.innerHTML = `<div class="empty-state"><span class="glyph">🍳</span>Nenhuma receita cadastrada ainda.</div>`;
+    container.innerHTML = `<div class="empty-state"><span class="glyph">${iconHtml("chef-hat", 36)}</span>Nenhuma receita cadastrada ainda.</div>`;
     return;
   }
   let filtered = recipeFilterCategory === "todas" ? state.recipes : state.recipes.filter((r) => r.category === recipeFilterCategory);
@@ -866,16 +912,16 @@ function renderRecipes() {
     filtered = filtered.filter((r) => r.sourcePlatform === recipeFilterSource);
   }
   if (filtered.length === 0) {
-    container.innerHTML = `<div class="empty-state"><span class="glyph">🍲</span>Nenhuma receita encontrada com esses filtros.</div>`;
+    container.innerHTML = `<div class="empty-state"><span class="glyph">${iconHtml("soup", 36)}</span>Nenhuma receita encontrada com esses filtros.</div>`;
     return;
   }
   container.innerHTML = filtered
     .map((r) => {
-      const cat = CATEGORY_INFO[r.category] || { icon: "🍲", color: "var(--ink-soft)" };
+      const cat = CATEGORY_INFO[r.category] || { icon: "soup", color: "var(--ink-soft)" };
       const sourceTag = r.sourcePlatform && BRAND_ICONS[r.sourcePlatform] ? brandIconHtml(r.sourcePlatform, 16) : "";
       return `
     <div class="recipe-card recipe-card-compact" style="--accent:${cat.color}" onclick="openRecipeDetail('${r.id}')">
-      <div class="recipe-thumb" style="background:${cat.color}">${cat.icon}</div>
+      <div class="recipe-thumb" style="background:${cat.color};color:white">${iconHtml(cat.icon)}</div>
       <div style="flex:1">
         <div class="recipe-name">${r.name} ${sourceTag}</div>
         <div class="recipe-category-tag">${r.category}</div>
@@ -908,7 +954,7 @@ const BRAND_ICONS = {
 
 function brandIconHtml(platform, size) {
   const icon = BRAND_ICONS[platform];
-  if (!icon) return `<span class="platform-icon" style="background:var(--ink-soft);width:${size}px;height:${size}px;font-size:${size * 0.55}px">🌐</span>`;
+  if (!icon) return `<span class="platform-icon" style="background:var(--ink-soft);width:${size}px;height:${size}px">${iconHtml("globe", size * 0.55, "white")}</span>`;
   return `<span class="platform-icon" style="background:${icon.bg};width:${size}px;height:${size}px"><svg viewBox="0 0 24 24" width="${size * 0.55}" height="${size * 0.55}" fill="white"><path d="${icon.path}"/></svg></span>`;
 }
 
@@ -916,28 +962,28 @@ const SOURCE_ICON = {
   instagram: "Instagram",
   tiktok: "TikTok",
   youtube: "YouTube",
-  web: "🌐 Site",
-  video: "🎬 Vídeo enviado",
+  web: `${iconHtml("globe", 14)} Site`,
+  video: `${iconHtml("video", 14)} Vídeo enviado`,
 };
 
 function openRecipeDetail(id) {
   const recipe = state.recipes.find((r) => r.id === id);
   if (!recipe) return;
-  const cat = CATEGORY_INFO[recipe.category] || { icon: "🍲", color: "var(--ink-soft)" };
+  const cat = CATEGORY_INFO[recipe.category] || { icon: "soup", color: "var(--ink-soft)" };
   const coverInner = recipe.coverImage
     ? `<div class="recipe-detail-cover" style="background-image:url('${recipe.coverImage}')"></div>`
-    : `<div class="recipe-detail-cover recipe-detail-cover-illustration" style="background:${cat.color}"><span>${cat.icon}</span></div>`;
+    : `<div class="recipe-detail-cover recipe-detail-cover-illustration" style="background:${cat.color};color:white">${iconHtml(cat.icon)}</div>`;
   const canRefreshCover = recipe.sourceUrl && (recipe.sourcePlatform === "instagram" || recipe.sourcePlatform === "tiktok");
   const refreshCoverBtn = canRefreshCover
-    ? `<button type="button" id="cover-refresh-btn" class="modal-x recipe-cover-refresh" title="Atualizar capa" onclick="refreshRecipeCover('${id}')">🔄</button>`
+    ? `<button type="button" id="cover-refresh-btn" class="modal-x recipe-cover-refresh" title="Atualizar capa" onclick="refreshRecipeCover('${id}')">${iconHtml("refresh", 14)}</button>`
     : "";
-  const cover = `<div class="recipe-detail-cover-wrap">${coverInner}<button type="button" class="modal-x recipe-detail-close" onclick="closeRecipeDetail()">✕</button>${refreshCoverBtn}</div>`;
+  const cover = `<div class="recipe-detail-cover-wrap">${coverInner}<button type="button" class="modal-x recipe-detail-close" onclick="closeRecipeDetail()">${iconHtml("x")}</button>${refreshCoverBtn}</div>`;
   const isBrand = recipe.sourcePlatform && BRAND_ICONS[recipe.sourcePlatform];
   const sourceBadge =
     recipe.sourceUrl && recipe.sourcePlatform
       ? `<a href="${recipe.sourceUrl}" target="_blank" rel="noopener" class="source-badge">${
           isBrand ? brandIconHtml(recipe.sourcePlatform, 18) : ""
-        }${SOURCE_ICON[recipe.sourcePlatform] || "🔗 Fonte"}</a>`
+        }${SOURCE_ICON[recipe.sourcePlatform] || `${iconHtml("link", 14)} Fonte`}</a>`
       : "";
   const instructionsHtml =
     recipe.instructions && recipe.instructions.length
@@ -947,7 +993,7 @@ function openRecipeDetail(id) {
     ${cover}
     <div class="recipe-detail-body">
       ${sourceBadge}
-      <span class="recipe-detail-category" style="color:${cat.color}">${cat.icon} ${recipe.category}</span>
+      <span class="recipe-detail-category" style="color:${cat.color}">${iconHtml(cat.icon)} ${recipe.category}</span>
       <h2 class="recipe-detail-name">${recipe.name}</h2>
       <div class="person-meta">Rende ${recipe.baseServings} porç.</div>
       <span class="field-label">Ingredientes</span>
@@ -1062,7 +1108,7 @@ function renderNewRecipeIngredients() {
       <input type="text" placeholder="Ingrediente" value="${ing.name}" oninput="newRecipeIngredients[${idx}].name=this.value" />
       <input type="number" placeholder="Qtd" value="${ing.qty}" oninput="newRecipeIngredients[${idx}].qty=this.value" />
       <input type="text" placeholder="Unidade" value="${ing.unit}" oninput="newRecipeIngredients[${idx}].unit=this.value" />
-      <button class="btn-danger-ghost" onclick="removeIngRow(${idx})">✕</button>
+      <button class="btn-danger-ghost" onclick="removeIngRow(${idx})">${iconHtml("x", 14)}</button>
     </div>
   `
     )
@@ -1643,8 +1689,8 @@ function renderShoppingList() {
   if (items.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
-        <span class="glyph">🧺</span>
-        Marque as refeições da semana na aba <strong>Semana</strong> e volte aqui pra gerar a lista.
+        <span class="glyph">${iconHtml("basket", 36)}</span>
+        Marque as refeições da semana na aba <strong>Plano</strong> e volte aqui pra gerar a lista.
       </div>`;
     return;
   }
@@ -1685,14 +1731,14 @@ function renderShoppingList() {
     <div class="list-section-title">Já tenho em casa</div>
     ${haveKeys.length ? renderGroup(haveKeys, true) : '<div style="color:var(--ink-soft);font-size:0.85rem;padding:6px 4px;">Ainda nada marcado.</div>'}
     <div class="action-row">
-      <button class="btn btn-secondary" onclick="generateChecklist()">🔄 Recalcular da Semana</button>
-      <button class="btn btn-primary" onclick="shareList()">📤 Compartilhar lista</button>
+      <button class="btn btn-secondary" onclick="generateChecklist()">${iconHtml("refresh", 15)} Recalcular da Semana</button>
+      <button class="btn btn-primary" onclick="shareList()">${iconHtml("share", 15)} Compartilhar lista</button>
     </div>
     <div class="action-row">
-      <button class="btn btn-secondary btn-block" onclick="exportListPdf()">📄 Baixar PDF com checklist</button>
+      <button class="btn btn-secondary btn-block" onclick="exportListPdf()">${iconHtml("file-text", 15)} Baixar PDF com checklist</button>
     </div>
     <div class="action-row">
-      <button class="btn btn-secondary btn-block" onclick="openHistoryModal()">🕘 Histórico de listas</button>
+      <button class="btn btn-secondary btn-block" onclick="openHistoryModal()">${iconHtml("history", 15)} Histórico de listas</button>
     </div>
   `;
 }
@@ -1709,7 +1755,7 @@ function renderHistoryModal() {
   const container = document.getElementById("history-content");
   const history = state.listHistory || [];
   if (history.length === 0) {
-    container.innerHTML = `<div class="empty-state"><span class="glyph">🕘</span>Nenhuma lista gerada ainda. Gere a lista da semana pra ela começar a ficar guardada aqui.</div>`;
+    container.innerHTML = `<div class="empty-state"><span class="glyph">${iconHtml("history", 36)}</span>Nenhuma lista gerada ainda. Gere a lista da semana pra ela começar a ficar guardada aqui.</div>`;
     return;
   }
   container.innerHTML = history
@@ -1978,6 +2024,11 @@ window.addEventListener("DOMContentLoaded", () => {
     platformsEl.innerHTML =
       brandIconHtml("youtube", 30) + brandIconHtml("tiktok", 30) + brandIconHtml("instagram", 30) + brandIconHtml("web", 30);
   }
+  // Ícones estáticos do HTML (abas, grade de importação, botões fechar) — marcados com
+  // data-icon="nome" no markup, preenchidos aqui a partir do mesmo sistema de ícones em linha.
+  document.querySelectorAll("[data-icon]").forEach((el) => {
+    el.innerHTML = iconHtml(el.dataset.icon);
+  });
   initSwipeToDismiss();
 
   if ("serviceWorker" in navigator) {

@@ -35,7 +35,7 @@
 <div id="app" class="hidden">
 
   <header class="app-header">
-    <button class="logout-btn" onclick="handleSignOut()" title="Sair">⏻</button>
+    <button class="logout-btn" onclick="handleSignOut()" title="Sair"><span data-icon="log-out"></span></button>
     <span class="eyebrow">Cardápio da semana</span>
     <h1>O que vamos <em>comer</em>?</h1>
     <div id="header-stats" class="header-stats"></div>
@@ -47,10 +47,10 @@
     <div id="inicio-today-card"></div>
     <div class="inicio-quick-actions">
       <button type="button" class="inicio-quick-btn" onclick="openImportModal()">
-        <span class="inicio-quick-icon">✨</span>Importar receita
+        <span class="inicio-quick-icon" data-icon="sparkles"></span>Importar receita
       </button>
       <button type="button" class="inicio-quick-btn" onclick="switchView('receitas')">
-        <span class="inicio-quick-icon">📖</span>Ver receitas
+        <span class="inicio-quick-icon" data-icon="book-open"></span>Ver receitas
       </button>
     </div>
     <span class="eyebrow inicio-recent-label">Receitas salvas</span>
@@ -73,7 +73,7 @@
   <!-- ===== Aba: Receitas ===== -->
   <section id="view-receitas" class="view">
     <div class="action-row" style="margin-bottom:14px">
-      <button class="btn btn-secondary" onclick="openImportModal()">✨ Importar com IA</button>
+      <button class="btn btn-secondary" onclick="openImportModal()"><span data-icon="sparkles"></span> Importar com IA</button>
       <button class="btn btn-primary" onclick="openNewRecipeModal()">+ Nova receita</button>
     </div>
     <div id="recipe-filters" class="filter-pills"></div>
@@ -91,19 +91,19 @@
 <nav class="tabbar">
   <div class="tabbar-inner">
     <button class="tab-btn active" data-view="inicio" onclick="switchView('inicio')">
-      <span class="tab-icon">🏠</span>Início
+      <span class="tab-icon" data-icon="home"></span>Início
     </button>
     <button class="tab-btn" data-view="semana" onclick="switchView('semana')">
-      <span class="tab-icon">📅</span>Plano
+      <span class="tab-icon" data-icon="calendar"></span>Plano
     </button>
     <button class="tab-btn" data-view="pessoas" onclick="switchView('pessoas')">
-      <span class="tab-icon">👪</span>Pessoas
+      <span class="tab-icon" data-icon="users"></span>Pessoas
     </button>
     <button class="tab-btn" data-view="receitas" onclick="switchView('receitas')">
-      <span class="tab-icon">📖</span>Receitas
+      <span class="tab-icon" data-icon="book-open"></span>Receitas
     </button>
     <button class="tab-btn" data-view="lista" onclick="switchView('lista')">
-      <span class="tab-icon">🧺</span>Lista
+      <span class="tab-icon" data-icon="basket"></span>Lista
     </button>
   </div>
 </nav>
@@ -153,7 +153,7 @@
   <div class="modal-sheet">
     <div class="modal-close-row">
       <h2>Importar receita</h2>
-      <button type="button" class="modal-x" onclick="closeImportModal()">✕</button>
+      <button type="button" class="modal-x" onclick="closeImportModal()"><span data-icon="x"></span></button>
     </div>
     <div class="import-platforms" id="import-platforms"></div>
     <p class="import-hint">Importe de qualquer rede social, site de receita ou documento.</p>
@@ -165,21 +165,21 @@
     <div class="import-icon-grid">
       <label class="import-icon-btn">
         <input type="file" id="import-image-input" accept="image/*" class="hidden" onchange="handleImportImage(event)" />
-        <span class="import-icon-circle">🖼️</span>
+        <span class="import-icon-circle" data-icon="image"></span>
         Imagem
       </label>
       <button type="button" class="import-icon-btn" onclick="toggleImportTextArea()">
-        <span class="import-icon-circle">📝</span>
+        <span class="import-icon-circle" data-icon="edit"></span>
         Texto
       </button>
       <label class="import-icon-btn">
         <input type="file" id="import-pdf-input" accept="application/pdf" class="hidden" onchange="handleImportPdf(event)" />
-        <span class="import-icon-circle">📄</span>
+        <span class="import-icon-circle" data-icon="file-text"></span>
         PDF
       </label>
       <label class="import-icon-btn">
         <input type="file" id="import-video-input" accept="video/*" class="hidden" onchange="handleImportVideo(event)" />
-        <span class="import-icon-circle">🎬</span>
+        <span class="import-icon-circle" data-icon="video"></span>
         Vídeo
       </label>
     </div>
@@ -200,7 +200,7 @@
   <div class="modal-sheet">
     <div class="modal-close-row">
       <h2>Escolher receita</h2>
-      <button type="button" class="modal-x" onclick="closeRecipePicker()">✕</button>
+      <button type="button" class="modal-x" onclick="closeRecipePicker()"><span data-icon="x"></span></button>
     </div>
     <input type="text" id="recipe-picker-search" placeholder="Buscar por nome..." oninput="renderRecipePickerList()" />
     <div id="recipe-picker-source" class="picker-source-toggle"></div>

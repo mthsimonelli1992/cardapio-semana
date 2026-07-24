@@ -19,6 +19,8 @@
 
 * { box-sizing: border-box; }
 
+.icon { display: inline-block; vertical-align: -0.15em; flex-shrink: 0; }
+
 html, body {
   margin: 0;
   padding: 0;
@@ -89,14 +91,15 @@ h1, h2, h3 {
   overflow: hidden;
 }
 .app-header::after {
-  content: "🍅🥕🌿";
+  content: "";
   position: absolute;
-  right: -6px;
-  bottom: -14px;
-  font-size: 2.6rem;
-  opacity: 0.18;
-  filter: saturate(0) brightness(2);
-  letter-spacing: 4px;
+  right: -40px;
+  top: -60px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.16), rgba(255,255,255,0) 70%);
+  pointer-events: none;
 }
 .app-header h1 { font-size: 1.85rem; line-height: 1.15; color: white; }
 .app-header h1 em { font-style: italic; font-weight: 500; color: var(--mustard); }
@@ -120,6 +123,9 @@ h1, h2, h3 {
   color: white;
   font-size: 0.9rem;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .header-stats {
   margin-top: 10px;
@@ -503,6 +509,9 @@ select:focus, input:focus, textarea:focus {
   color: var(--ink-soft);
   font-size: 0.9rem;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .import-platforms { display: flex; justify-content: center; gap: 10px; margin: 14px 0 10px; }
 .platform-icon {
@@ -788,6 +797,9 @@ select:focus, input:focus, textarea:focus {
   font-size: 0.8rem;
   cursor: pointer;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ---- Shopping list view ---- */
