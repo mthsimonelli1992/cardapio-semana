@@ -449,7 +449,8 @@ select:focus, input:focus, textarea:focus {
   box-shadow: var(--shadow);
 }
 .recipe-card-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.recipe-name { font-family: 'Fraunces', serif; font-size: 1.05rem; font-weight: 600; }
+.recipe-name { font-family: 'Fraunces', serif; font-size: 1.05rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.recipe-name .platform-icon { flex-shrink: 0; }
 .recipe-thumb {
   width: 48px; height: 48px;
   border-radius: 50%;
@@ -545,6 +546,22 @@ select:focus, input:focus, textarea:focus {
 }
 .filter-pill.active { background: var(--terracotta); border-color: var(--terracotta); color: white; }
 
+.source-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
+.source-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 50%;
+  opacity: 0.45;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.source-filter-btn.active { opacity: 1; transform: scale(1.08); box-shadow: 0 0 0 2px var(--terracotta); border-radius: 50%; }
+.source-filter-row .filter-pill { flex-shrink: 0; }
+
 /* ---- People view ---- */
 .person-card { display: flex; align-items: center; gap: 12px; }
 .person-avatar {
@@ -615,6 +632,15 @@ select:focus, input:focus, textarea:focus {
   background: var(--green);
   border-radius: 999px;
   transition: width .2s ease;
+}
+#import-progress { margin: 10px 0 0; }
+.progress-indeterminate {
+  width: 35%;
+  animation: progress-indeterminate 1.1s ease-in-out infinite;
+}
+@keyframes progress-indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(285%); }
 }
 
 .action-row { display: flex; gap: 8px; margin-top: 18px; }

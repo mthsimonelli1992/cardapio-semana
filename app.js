@@ -494,11 +494,20 @@ function setRecipeFilter(cat) {
   renderRecipes();
 }
 
+let recipeFilterSource = "todos";
+
+function setRecipeSourceFilter(source) {
+  recipeFilterSource = source;
+  renderRecipes();
+}
+
 function renderRecipeFilters() {
   const filterContainer = document.getElementById("recipe-filters");
+  const sourceContainer = document.getElementById("recipe-source-filters");
   if (!filterContainer) return;
   if (state.recipes.length === 0) {
     filterContainer.innerHTML = "";
+    if (sourceContainer) sourceContainer.innerHTML = "";
     return;
   }
   const cats = ["todas", ...Object.keys(CATEGORY_INFO)];
@@ -508,6 +517,18 @@ function renderRecipeFilters() {
       return `<button type="button" class="filter-pill ${cat === recipeFilterCategory ? "active" : ""}" onclick="setRecipeFilter('${cat}')">${label}</button>`;
     })
     .join("");
+
+  if (sourceContainer) {
+    const sources = ["youtube", "tiktok", "instagram", "web"];
+    sourceContainer.innerHTML =
+      `<button type="button" class="filter-pill ${recipeFilterSource === "todos" ? "active" : ""}" onclick="setRecipeSourceFilter('todos')">Todas as fontes</button>` +
+      sources
+        .map(
+          (s) =>
+            `<button type="button" class="source-filter-btn ${recipeFilterSource === s ? "active" : ""}" onclick="setRecipeSourceFilter('${s}')" title="${BRAND_ICONS[s] ? BRAND_ICONS[s].label : "Site"}">${brandIconHtml(s, 24)}</button>`
+        )
+        .join("");
+  }
 }
 
 function renderRecipes() {
@@ -517,20 +538,23 @@ function renderRecipes() {
     container.innerHTML = `<div class="empty-state"><span class="glyph">🍳</span>Nenhuma receita cadastrada ainda.</div>`;
     return;
   }
-  const filtered =
-    recipeFilterCategory === "todas" ? state.recipes : state.recipes.filter((r) => r.category === recipeFilterCategory);
+  let filtered = recipeFilterCategory === "todas" ? state.recipes : state.recipes.filter((r) => r.category === recipeFilterCategory);
+  if (recipeFilterSource !== "todos") {
+    filtered = filtered.filter((r) => r.sourcePlatform === recipeFilterSource);
+  }
   if (filtered.length === 0) {
-    container.innerHTML = `<div class="empty-state"><span class="glyph">🍲</span>Nenhuma receita nessa categoria ainda.</div>`;
+    container.innerHTML = `<div class="empty-state"><span class="glyph">🍲</span>Nenhuma receita encontrada com esses filtros.</div>`;
     return;
   }
   container.innerHTML = filtered
     .map((r) => {
       const cat = CATEGORY_INFO[r.category] || { icon: "🍲", color: "var(--ink-soft)" };
+      const sourceTag = r.sourcePlatform && BRAND_ICONS[r.sourcePlatform] ? brandIconHtml(r.sourcePlatform, 16) : "";
       return `
     <div class="recipe-card recipe-card-compact" style="--accent:${cat.color}" onclick="openRecipeDetail('${r.id}')">
       <div class="recipe-thumb" style="background:${cat.color}">${cat.icon}</div>
       <div style="flex:1">
-        <div class="recipe-name">${r.name}</div>
+        <div class="recipe-name">${r.name} ${sourceTag}</div>
         <div class="person-meta">${r.category}</div>
       </div>
       <span class="recipe-card-chevron">›</span>
@@ -739,6 +763,13 @@ function setImportStatus(text) {
   el.classList.remove("hidden");
 }
 
+function showImportProgress() {
+  document.getElementById("import-progress").classList.remove("hidden");
+}
+function hideImportProgress() {
+  document.getElementById("import-progress").classList.add("hidden");
+}
+
 async function handleImportPdf(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -804,6 +835,7 @@ async function handleImportLink() {
   }
   document.getElementById("import-review").innerHTML = "";
   setImportStatus("Iniciando o download do vídeo...");
+  showImportProgress();
   try {
     const startRes = await fetch("/api/import-video-start", {
       method: "POST",
@@ -868,6 +900,8 @@ async function handleImportLink() {
     } else {
       setImportStatus("Erro: " + e.message);
     }
+  } finally {
+    hideImportProgress();
   }
 }
 
@@ -938,6 +972,7 @@ async function extractRecipesWithAI() {
   const btn = document.getElementById("import-extract-btn");
   document.getElementById("import-review").innerHTML = "";
   setImportStatus("Consultando a IA...");
+  showImportProgress();
   btn.disabled = true;
   try {
     const url = usingVideo ? "/api/parse-recipe-video" : "/api/parse-recipe";
@@ -963,6 +998,7 @@ async function extractRecipesWithAI() {
     }
   } finally {
     btn.disabled = false;
+    hideImportProgress();
   }
 }
 
@@ -1022,10 +1058,21 @@ function acceptImportedRecipe(idx) {
   renderRecipes();
   renderPlanner();
   document.getElementById(`import-card-${idx}`)?.remove();
+  closeImportModalIfDone();
 }
 
 function discardImportedRecipe(idx) {
   document.getElementById(`import-card-${idx}`)?.remove();
+  closeImportModalIfDone();
+}
+
+// Fecha o modal de importação sozinho quando não sobrar nenhuma receita pra revisar
+// (o caso comum é uma receita só — não faz sentido deixar a tela aberta depois de aceitar/descartar).
+function closeImportModalIfDone() {
+  const remaining = document.getElementById("import-review").querySelectorAll(".import-review-card");
+  if (remaining.length === 0 && pendingImportRecipes.length > 0) {
+    closeImportModal();
+  }
 }
 
 // ===== Lista de compras =====
