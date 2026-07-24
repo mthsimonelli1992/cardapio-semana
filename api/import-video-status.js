@@ -11,6 +11,7 @@ import {
   extractResultFromItem,
   processVideoUrl,
   processAudioOnlyUrl,
+  fetchTikTokThumbnail,
 } from "../lib/videoImport.js";
 import { callClaudeForRecipes } from "../lib/recipeTool.js";
 
@@ -54,6 +55,10 @@ export default async function handler(req, res) {
         error: "Não consegui baixar esse vídeo — confira se é público e o link está certo.",
       });
       return;
+    }
+    // O ator de download do TikTok não devolve thumbnail — busca pelo oEmbed público deles.
+    if (platform === "tiktok" && !extracted.coverImage && items[0].sourceUrl) {
+      extracted.coverImage = await fetchTikTokThumbnail(items[0].sourceUrl);
     }
 
     let workDir;

@@ -359,7 +359,15 @@ select:focus, input:focus, textarea:focus {
   font-size: 0.9rem;
   cursor: pointer;
 }
-.import-platforms { font-size: 1.6rem; text-align: center; letter-spacing: 10px; margin: 14px 0 10px; }
+.import-platforms { display: flex; justify-content: center; gap: 10px; margin: 14px 0 10px; }
+.platform-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  flex-shrink: 0;
+}
+.source-badge .platform-icon { border-radius: 50%; }
 .import-or {
   display: flex;
   align-items: center;
@@ -464,6 +472,8 @@ select:focus, input:focus, textarea:focus {
 
 /* ---- Recipe detail modal ---- */
 .modal-sheet-flush { padding: 0; overflow: hidden; }
+.modal-sheet-flush::before { background: rgba(255,255,255,0.8); z-index: 1; box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
+.recipe-detail-cover-wrap { position: relative; }
 .recipe-detail-cover {
   height: 200px;
   background-size: cover;
@@ -472,6 +482,14 @@ select:focus, input:focus, textarea:focus {
 }
 .recipe-detail-cover-illustration { display: flex; align-items: center; justify-content: center; }
 .recipe-detail-cover-illustration span { font-size: 4.5rem; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.15)); }
+.recipe-detail-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(0,0,0,0.35);
+  color: white;
+  z-index: 2;
+}
 .recipe-detail-body { padding: 18px 18px 24px; max-height: calc(85vh - 200px); overflow-y: auto; }
 .recipe-detail-category {
   display: block;
@@ -610,12 +628,24 @@ select:focus, input:focus, textarea:focus {
 }
 .modal-backdrop.hidden { display: none; }
 .modal-sheet {
+  position: relative;
   background: var(--paper);
   width: 100%;
   max-height: 85vh;
   overflow-y: auto;
   border-radius: 16px 16px 0 0;
-  padding: 20px 18px 28px;
+  padding: 26px 18px 28px;
+}
+.modal-sheet::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
 }
 .modal-sheet h2 { margin-bottom: 14px; }
 .field-label {
