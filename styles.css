@@ -727,15 +727,51 @@ select:focus, input:focus, textarea:focus {
 .source-filter-row .filter-pill { flex-shrink: 0; }
 
 /* ---- People view ---- */
-.person-card { display: flex; align-items: center; gap: 12px; }
+.person-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+  transition: transform .1s ease;
+}
+.person-card:active { transform: scale(0.99); }
 .person-avatar {
-  width: 42px; height: 42px;
+  width: 56px; height: 56px;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-family: 'Fraunces', serif;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 1.3rem;
   color: white;
+  flex-shrink: 0;
+  box-shadow: 0 3px 8px -2px rgba(42,42,34,0.35);
+}
+.person-info { flex: 1; min-width: 0; }
+.person-name { font-family: 'Fraunces', serif; font-size: 1.1rem; font-weight: 600; margin-bottom: 5px; }
+.person-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.person-remove-btn {
+  position: absolute;
+  top: 10px; right: 10px;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  cursor: pointer;
   flex-shrink: 0;
 }
 
@@ -829,6 +865,30 @@ select:focus, input:focus, textarea:focus {
   background: var(--line);
 }
 .modal-sheet h2 { margin-bottom: 14px; }
+
+.recipe-picker-list { margin-top: 6px; }
+.recipe-picker-section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 16px 0 6px;
+}
+.recipe-picker-list .recipe-card-compact { margin-bottom: 8px; }
+
+.dish-add-btn {
+  width: 100%;
+  background: var(--paper);
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 11px;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--green-deep);
+  cursor: pointer;
+}
 .field-label {
   font-size: 0.78rem;
   font-weight: 700;
@@ -849,5 +909,5 @@ select:focus, input:focus, textarea:focus {
     gap: 14px;
     align-items: start;
   }
-  #recipes-list .recipe-card, #people-list .recipe-card { margin-bottom: 0; }
+  #recipes-list .recipe-card, #people-list .person-card { margin-bottom: 0; }
 }

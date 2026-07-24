@@ -389,7 +389,7 @@ function renderInicio() {
             <span class="eyebrow">${dayLabel}</span>
             <div class="inicio-today-date">${weekDates[selectedIdx].toLocaleDateString("pt-BR", { day: "2-digit", month: "long" })}</div>
           </div>
-          <button type="button" class="inicio-goto-cardapio" onclick="jumpToCardapioDay('${inicioSelectedDayKey}')">Ver no Cardápio ›</button>
+          <button type="button" class="inicio-goto-cardapio" onclick="jumpToCardapioDay('${inicioSelectedDayKey}')">Ver no Plano ›</button>
         </div>
         ${mealsHtml}
       </div>
@@ -496,11 +496,7 @@ function mealRowHtml(weekKey, dayKey, meal, data, lock) {
     )
     .join("");
   const addDishRow = `
-    <div class="dish-row">
-      <select onchange="addMealDish('${weekKey}','${dayKey}','${meal}', this.value)">
-        ${recipeOptionsHtml("", "todas", "+ adicionar prato")}
-      </select>
-    </div>
+    <button type="button" class="dish-add-btn" onclick="openRecipePicker('${weekKey}','${dayKey}','${meal}')">+ Adicionar prato</button>
   `;
 
   const chips = state.people
@@ -597,6 +593,82 @@ function togglePersonInMeal(weekKey, dayKey, meal, personId) {
   renderPlanner();
 }
 
+// ===== Escolher receita (sobretela pra adicionar prato numa refeição) =====
+let recipePickerTarget = null;
+let recipePickerCategory = "todas";
+
+function openRecipePicker(weekKey, dayKey, meal) {
+  recipePickerTarget = { weekKey, dayKey, meal };
+  recipePickerCategory = "todas";
+  document.getElementById("recipe-picker-search").value = "";
+  renderRecipePickerFilters();
+  renderRecipePickerList();
+  showModal("modal-recipe-picker");
+}
+
+function closeRecipePicker() {
+  hideModal("modal-recipe-picker");
+  recipePickerTarget = null;
+}
+
+function setRecipePickerCategory(cat) {
+  recipePickerCategory = cat;
+  renderRecipePickerFilters();
+  renderRecipePickerList();
+}
+
+function renderRecipePickerFilters() {
+  const el = document.getElementById("recipe-picker-filters");
+  if (!el) return;
+  const cats = ["todas", ...Object.keys(CATEGORY_INFO)];
+  el.innerHTML = cats
+    .map((cat) => {
+      const label = cat === "todas" ? "Todas" : cat.charAt(0).toUpperCase() + cat.slice(1);
+      return `<button type="button" class="filter-pill ${cat === recipePickerCategory ? "active" : ""}" onclick="setRecipePickerCategory('${cat}')">${label}</button>`;
+    })
+    .join("");
+}
+
+function renderRecipePickerList() {
+  const container = document.getElementById("recipe-picker-list");
+  if (!container) return;
+  const query = (document.getElementById("recipe-picker-search").value || "").trim().toLowerCase();
+  const seedIds = new Set(SEED_RECIPES.map((r) => r.id));
+
+  let filtered = state.recipes;
+  if (recipePickerCategory !== "todas") filtered = filtered.filter((r) => r.category === recipePickerCategory);
+  if (query) filtered = filtered.filter((r) => r.name.toLowerCase().includes(query));
+
+  const rowHtml = (r) => {
+    const cat = CATEGORY_INFO[r.category] || { icon: "🍲", color: "var(--ink-soft)" };
+    return `
+      <div class="recipe-card recipe-card-compact" style="--accent:${cat.color}" onclick="pickRecipeForMeal('${r.id}')">
+        <div class="recipe-thumb" style="background:${cat.color}">${cat.icon}</div>
+        <div style="flex:1">
+          <div class="recipe-name">${r.name}</div>
+          <div class="recipe-category-tag">${r.category}</div>
+        </div>
+        <span class="recipe-card-chevron">›</span>
+      </div>
+    `;
+  };
+
+  const mine = filtered.filter((r) => !seedIds.has(r.id));
+  const base = filtered.filter((r) => seedIds.has(r.id));
+
+  let html = "";
+  if (mine.length) html += `<div class="recipe-picker-section-label">Minhas receitas</div>${mine.map(rowHtml).join("")}`;
+  if (base.length) html += `<div class="recipe-picker-section-label">Banco de receitas</div>${base.map(rowHtml).join("")}`;
+  container.innerHTML = html || `<div class="empty-state"><span class="glyph">🔍</span>Nenhuma receita encontrada.</div>`;
+}
+
+function pickRecipeForMeal(recipeId) {
+  if (!recipePickerTarget) return;
+  const { weekKey, dayKey, meal } = recipePickerTarget;
+  addMealDish(weekKey, dayKey, meal, recipeId);
+  closeRecipePicker();
+}
+
 // ===== Pessoas e fatores de porção =====
 function getPersonFactor(person) {
   if (person.profile === "personalizado") return person.customFactor || 1;
@@ -651,14 +723,12 @@ function renderPeople() {
       const initial = p.name.trim().charAt(0).toUpperCase() || "?";
       const avatarColor = PROFILE_GROUP_COLOR[p.profile] || "var(--ink-soft)";
       return `
-    <div class="recipe-card person-card" style="--accent:${avatarColor}">
+    <div class="person-card">
+      <button type="button" class="person-remove-btn" onclick="deletePerson('${p.id}')" title="Remover">✕</button>
       <div class="person-avatar" style="background:${avatarColor}">${initial}</div>
-      <div class="recipe-card-top" style="flex:1">
-        <div>
-          <div class="recipe-name">${p.name}</div>
-          <div class="person-meta">${profileLabel}</div>
-        </div>
-        <button class="btn-danger-ghost" onclick="deletePerson('${p.id}')">remover</button>
+      <div class="person-info">
+        <div class="person-name">${p.name}</div>
+        <span class="person-badge" style="color:${avatarColor}">${profileLabel}</span>
       </div>
     </div>
   `;
@@ -1464,7 +1534,7 @@ function saveListSnapshot(items) {
 function generateChecklist() {
   const items = computeAggregatedIngredients();
   if (items.length === 0) {
-    alert("Nenhuma refeição em casa foi marcada na aba Cardápio ainda.");
+    alert("Nenhuma refeição em casa foi marcada na aba Plano ainda.");
     return;
   }
   // reinicia o checklist mantendo os itens que já existiam desmarcados/marcados quando fizer sentido

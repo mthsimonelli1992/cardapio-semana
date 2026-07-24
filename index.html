@@ -57,7 +57,7 @@
     <div id="inicio-recent-recipes" class="inicio-recipe-row"></div>
   </section>
 
-  <!-- ===== Aba: Cardápio ===== -->
+  <!-- ===== Aba: Plano ===== -->
   <section id="view-semana" class="view">
     <div id="planner-days"></div>
     <div id="next-week-section" class="next-week-section"></div>
@@ -94,7 +94,7 @@
       <span class="tab-icon">🏠</span>Início
     </button>
     <button class="tab-btn" data-view="semana" onclick="switchView('semana')">
-      <span class="tab-icon">📅</span>Cardápio
+      <span class="tab-icon">📅</span>Plano
     </button>
     <button class="tab-btn" data-view="pessoas" onclick="switchView('pessoas')">
       <span class="tab-icon">👪</span>Pessoas
@@ -192,6 +192,19 @@
     <button class="btn btn-primary btn-block" id="import-extract-btn" onclick="handleImportSubmit()" style="margin-top:16px">Importar</button>
 
     <div id="import-review"></div>
+  </div>
+</div>
+
+<!-- ===== Modal: Escolher receita (adicionar prato) ===== -->
+<div id="modal-recipe-picker" class="modal-backdrop hidden">
+  <div class="modal-sheet">
+    <div class="modal-close-row">
+      <h2>Escolher receita</h2>
+      <button type="button" class="modal-x" onclick="closeRecipePicker()">✕</button>
+    </div>
+    <input type="text" id="recipe-picker-search" placeholder="Buscar por nome..." oninput="renderRecipePickerList()" />
+    <div id="recipe-picker-filters" class="filter-pills" style="margin-top:10px"></div>
+    <div id="recipe-picker-list" class="recipe-picker-list"></div>
   </div>
 </div>
 
