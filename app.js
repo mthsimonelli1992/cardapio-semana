@@ -69,7 +69,18 @@ function normalizeState(parsed) {
       if (!existingIds.has(r.id)) s.recipes.push(structuredClone(r));
     });
   }
-  if (!s.week) s.week = defaultWeek();
+  if (!s.weeksByKey) s.weeksByKey = {};
+  if (s.week) {
+    // Migração: antes só existia "a semana atual" como modelo único, sem chave de data real.
+    // Joga esse conteúdo pra semana atual de verdade e não usa mais essa chave solta.
+    const currentKey = getISOWeekKey(new Date());
+    if (!s.weeksByKey[currentKey]) s.weeksByKey[currentKey] = s.week;
+    delete s.week;
+  }
+  [getISOWeekKey(new Date()), getISOWeekKey(new Date(Date.now() + 7 * 86400000))].forEach((key) => {
+    if (!s.weeksByKey[key]) s.weeksByKey[key] = defaultWeek();
+    s.weeksByKey[key] = migrateWeek(s.weeksByKey[key]);
+  });
   if (!s.people) s.people = [];
   s.people.forEach((p) => {
     if (!p.activityLevel) p.activityLevel = "moderado";
@@ -77,7 +88,6 @@ function normalizeState(parsed) {
   if (!s.checklist) s.checklist = {};
   if (s.generatedAt === undefined) s.generatedAt = null;
   if (!s.listHistory) s.listHistory = [];
-  s.week = migrateWeek(s.week);
   return s;
 }
 
@@ -196,18 +206,33 @@ function recipeOptionsHtml(selectedId, category, placeholder) {
   return `<option value="">${placeholder || "— escolher receita —"}</option>${opts}`;
 }
 
-// Datas reais da semana atual (segunda a domingo), só pra exibição — o estado continua
-// indexado por dia da semana genérico (seg/ter/...), não por data específica.
-function getWeekDates() {
+// Datas reais da semana (segunda a domingo) — weekOffset 0 = semana atual, 1 = semana seguinte.
+// O estado continua indexado por dia da semana genérico (seg/ter/...) dentro de cada semana.
+function getWeekDates(weekOffset = 0) {
   const now = new Date();
   const dayNum = now.getDay() || 7;
   const monday = new Date(now);
-  monday.setDate(now.getDate() - (dayNum - 1));
+  monday.setDate(now.getDate() - (dayNum - 1) + weekOffset * 7);
   return DAYS.map((d, i) => {
     const date = new Date(monday);
     date.setDate(monday.getDate() + i);
     return date;
   });
+}
+
+function getCurrentWeekKey() {
+  return getISOWeekKey(new Date());
+}
+function getNextWeekKey() {
+  return getISOWeekKey(getWeekDates(1)[0]);
+}
+
+// Cada semana real do calendário é guardada separadamente (por chave ISO, ex: "2026-W31"),
+// criada sob demanda — assim dá pra planejar a semana seguinte sem mexer na atual, e quando
+// ela virar de verdade, já está pronta esperando.
+function getWeek(weekKey) {
+  if (!state.weeksByKey[weekKey]) state.weeksByKey[weekKey] = defaultWeek();
+  return state.weeksByKey[weekKey];
 }
 
 // Trava edição de refeições que já passaram: dia anterior a hoje trava por completo
@@ -224,12 +249,13 @@ function getMealLock(dayDate, meal) {
   return { locked: false, reason: null };
 }
 
-function renderPlanner() {
-  const container = document.getElementById("planner-days");
-  const weekDates = getWeekDates();
+// Monta os 7 cards de dia de uma semana. locked=false força tudo aberto pra edição
+// (usado na semana seguinte, que é sempre futuro — nunca trava).
+function daysHtml(weekKey, weekDates, applyLock) {
+  const week = getWeek(weekKey);
   const todayStr = new Date().toDateString();
-  container.innerHTML = DAYS.map((d, i) => {
-    const day = state.week[d.key];
+  return DAYS.map((d, i) => {
+    const day = week[d.key];
     const activeCount = ["almoco", "jantar"].filter((m) => day[m].emCasa).length;
     const pillText = activeCount === 0 ? "sem refeições em casa" : `${activeCount} refeição(ões) em casa`;
     const dishIcons = ["almoco", "jantar"]
@@ -255,11 +281,35 @@ function renderPlanner() {
           <span class="day-summary-pill ${activeCount > 0 ? "has-meals" : ""}">${pillText}</span>
         </summary>
         <div class="day-body">
-          ${["almoco", "jantar"].map((meal) => mealRowHtml(d.key, meal, day[meal], getMealLock(weekDates[i], meal))).join("")}
+          ${["almoco", "jantar"]
+            .map((meal) => mealRowHtml(weekKey, d.key, meal, day[meal], applyLock ? getMealLock(weekDates[i], meal) : { locked: false, reason: null }))
+            .join("")}
         </div>
       </details>
     `;
   }).join("");
+}
+
+let nextWeekOpen = false;
+function toggleNextWeekSection() {
+  nextWeekOpen = !nextWeekOpen;
+  renderPlanner();
+}
+
+function renderPlanner() {
+  const container = document.getElementById("planner-days");
+  container.innerHTML = daysHtml(getCurrentWeekKey(), getWeekDates(0), true);
+
+  const nextContainer = document.getElementById("next-week-section");
+  if (nextContainer) {
+    nextContainer.innerHTML = `
+      <button type="button" class="next-week-toggle" onclick="toggleNextWeekSection()">
+        <span>📆 Planejar a próxima semana</span>
+        <span class="next-week-chevron ${nextWeekOpen ? "open" : ""}">›</span>
+      </button>
+      ${nextWeekOpen ? `<div class="next-week-days">${daysHtml(getNextWeekKey(), getWeekDates(1), false)}</div>` : ""}
+    `;
+  }
   renderHeaderStats();
 }
 
@@ -267,9 +317,10 @@ function renderHeaderStats() {
   const el = document.getElementById("header-stats");
   if (!el) return;
   let count = 0;
+  const week = getWeek(getCurrentWeekKey());
   DAYS.forEach((d) => {
     ["almoco", "jantar"].forEach((meal) => {
-      const m = state.week[d.key][meal];
+      const m = week[d.key][meal];
       if (m.emCasa && m.recipeIds.length) count++;
     });
   });
@@ -284,7 +335,7 @@ const LOCK_LABEL = {
   "lunch-cutoff": "🔒 horário do almoço encerrado",
 };
 
-function mealRowHtml(dayKey, meal, data, lock) {
+function mealRowHtml(weekKey, dayKey, meal, data, lock) {
   const label = meal === "almoco" ? "☀️ Almoço" : "🌙 Jantar";
   const locked = lock && lock.locked;
 
@@ -330,17 +381,17 @@ function mealRowHtml(dayKey, meal, data, lock) {
     .map(
       (rid, idx) => `
       <div class="dish-row">
-        <select onchange="updateMealDish('${dayKey}','${meal}',${idx}, this.value)">
+        <select onchange="updateMealDish('${weekKey}','${dayKey}','${meal}',${idx}, this.value)">
           ${recipeOptionsHtml(rid, "todas")}
         </select>
-        <button type="button" class="btn-danger-ghost" onclick="removeMealDish('${dayKey}','${meal}',${idx})">✕</button>
+        <button type="button" class="btn-danger-ghost" onclick="removeMealDish('${weekKey}','${dayKey}','${meal}',${idx})">✕</button>
       </div>
     `
     )
     .join("");
   const addDishRow = `
     <div class="dish-row">
-      <select onchange="addMealDish('${dayKey}','${meal}', this.value)">
+      <select onchange="addMealDish('${weekKey}','${dayKey}','${meal}', this.value)">
         ${recipeOptionsHtml("", "todas", "+ adicionar prato")}
       </select>
     </div>
@@ -350,7 +401,7 @@ function mealRowHtml(dayKey, meal, data, lock) {
     .map(
       (p) => `
       <button type="button" class="person-chip ${data.peopleIds.includes(p.id) ? "selected" : ""}"
-        onclick="togglePersonInMeal('${dayKey}','${meal}','${p.id}')">${p.name}</button>
+        onclick="togglePersonInMeal('${weekKey}','${dayKey}','${meal}','${p.id}')">${p.name}</button>
     `
     )
     .join("");
@@ -361,7 +412,7 @@ function mealRowHtml(dayKey, meal, data, lock) {
         <span class="meal-label">${label}</span>
         <label class="switch">
           <input type="checkbox" ${data.emCasa ? "checked" : ""}
-            onchange="updateMeal('${dayKey}','${meal}','emCasa', this.checked)" />
+            onchange="updateMeal('${weekKey}','${dayKey}','${meal}','emCasa', this.checked)" />
           <span class="track"></span><span class="thumb"></span>
         </label>
       </div>
@@ -376,14 +427,14 @@ function mealRowHtml(dayKey, meal, data, lock) {
         <span class="field-label">Convidados extras</span>
         <div class="extra-guests">
           <span class="extra-guest-stepper">
-            <button type="button" class="stepper-btn" onclick="adjustMealExtra('${dayKey}','${meal}','adultos',-1)">−</button>
+            <button type="button" class="stepper-btn" onclick="adjustMealExtra('${weekKey}','${dayKey}','${meal}','adultos',-1)">−</button>
             ${data.extra.adultos || 0} adulto(s)
-            <button type="button" class="stepper-btn" onclick="adjustMealExtra('${dayKey}','${meal}','adultos',1)">+</button>
+            <button type="button" class="stepper-btn" onclick="adjustMealExtra('${weekKey}','${dayKey}','${meal}','adultos',1)">+</button>
           </span>
           <span class="extra-guest-stepper">
-            <button type="button" class="stepper-btn" onclick="adjustMealExtra('${dayKey}','${meal}','criancas',-1)">−</button>
+            <button type="button" class="stepper-btn" onclick="adjustMealExtra('${weekKey}','${dayKey}','${meal}','criancas',-1)">−</button>
             ${data.extra.criancas || 0} criança(s)
-            <button type="button" class="stepper-btn" onclick="adjustMealExtra('${dayKey}','${meal}','criancas',1)">+</button>
+            <button type="button" class="stepper-btn" onclick="adjustMealExtra('${weekKey}','${dayKey}','${meal}','criancas',1)">+</button>
           </span>
         </div>
         <div class="meal-total-hint">Cada prato é feito pra ${formatQty(total)} porção(ões)-padrão</div>
@@ -392,8 +443,8 @@ function mealRowHtml(dayKey, meal, data, lock) {
   `;
 }
 
-function updateMeal(dayKey, meal, field, value) {
-  const m = state.week[dayKey][meal];
+function updateMeal(weekKey, dayKey, meal, field, value) {
+  const m = getWeek(weekKey)[dayKey][meal];
   m[field] = value;
   // Desligar "em casa" zera as escolhas — religar depois começa do zero, não com o que sobrou de antes.
   if (field === "emCasa" && value === false) {
@@ -405,34 +456,34 @@ function updateMeal(dayKey, meal, field, value) {
   renderPlanner();
 }
 
-function adjustMealExtra(dayKey, meal, key, delta) {
-  const m = state.week[dayKey][meal];
+function adjustMealExtra(weekKey, dayKey, meal, key, delta) {
+  const m = getWeek(weekKey)[dayKey][meal];
   m.extra[key] = Math.max(0, (m.extra[key] || 0) + delta);
   saveState();
   renderPlanner();
 }
 
-function addMealDish(dayKey, meal, recipeId) {
+function addMealDish(weekKey, dayKey, meal, recipeId) {
   if (!recipeId) return;
-  state.week[dayKey][meal].recipeIds.push(recipeId);
+  getWeek(weekKey)[dayKey][meal].recipeIds.push(recipeId);
   saveState();
   renderPlanner();
 }
-function updateMealDish(dayKey, meal, idx, recipeId) {
-  const arr = state.week[dayKey][meal].recipeIds;
+function updateMealDish(weekKey, dayKey, meal, idx, recipeId) {
+  const arr = getWeek(weekKey)[dayKey][meal].recipeIds;
   if (!recipeId) arr.splice(idx, 1);
   else arr[idx] = recipeId;
   saveState();
   renderPlanner();
 }
-function removeMealDish(dayKey, meal, idx) {
-  state.week[dayKey][meal].recipeIds.splice(idx, 1);
+function removeMealDish(weekKey, dayKey, meal, idx) {
+  getWeek(weekKey)[dayKey][meal].recipeIds.splice(idx, 1);
   saveState();
   renderPlanner();
 }
 
-function togglePersonInMeal(dayKey, meal, personId) {
-  const arr = state.week[dayKey][meal].peopleIds;
+function togglePersonInMeal(weekKey, dayKey, meal, personId) {
+  const arr = getWeek(weekKey)[dayKey][meal].peopleIds;
   const idx = arr.indexOf(personId);
   if (idx === -1) arr.push(personId);
   else arr.splice(idx, 1);
@@ -1227,9 +1278,10 @@ function closeImportModalIfDone() {
 // ===== Lista de compras =====
 function computeAggregatedIngredients() {
   const totals = {}; // key: "nome||unidade" -> { name, unit, qty }
+  const week = getWeek(getCurrentWeekKey());
   DAYS.forEach((d) => {
     ["almoco", "jantar"].forEach((meal) => {
-      const m = state.week[d.key][meal];
+      const m = week[d.key][meal];
       if (!m.emCasa || !m.recipeIds.length) return;
       const factor = computeMealFactor(m);
       m.recipeIds.forEach((recipeId) => {
@@ -1305,7 +1357,7 @@ function saveListSnapshot(items) {
 function generateChecklist() {
   const items = computeAggregatedIngredients();
   if (items.length === 0) {
-    alert("Nenhuma refeição em casa foi marcada na aba Semana ainda.");
+    alert("Nenhuma refeição em casa foi marcada na aba Cardápio ainda.");
     return;
   }
   // reinicia o checklist mantendo os itens que já existiam desmarcados/marcados quando fizer sentido
@@ -1438,8 +1490,9 @@ async function copyHistoryEntry(idx) {
 // Monta o cardápio dia a dia com os ingredientes já escalados de cada prato,
 // pra ir junto da lista de compras — assim quem recebe sabe o que cozinhar, não só o que comprar.
 function buildWeekMenuText() {
+  const week = getWeek(getCurrentWeekKey());
   const dayBlocks = DAYS.map((d) => {
-    const day = state.week[d.key];
+    const day = week[d.key];
     const mealBlocks = ["almoco", "jantar"]
       .filter((meal) => day[meal].emCasa && day[meal].recipeIds.length)
       .map((meal) => {
@@ -1543,8 +1596,9 @@ async function exportListPdf() {
   });
 
   // ---- Cardápio da semana (informativo, sem checkbox) ----
+  const currentWeek = getWeek(getCurrentWeekKey());
   const menuDays = DAYS.map((d) => {
-    const day = state.week[d.key];
+    const day = currentWeek[d.key];
     const meals = ["almoco", "jantar"]
       .filter((meal) => day[meal].emCasa && day[meal].recipeIds.length)
       .map((meal) => {
