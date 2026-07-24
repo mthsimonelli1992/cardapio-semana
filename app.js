@@ -313,6 +313,13 @@ const PROFILE_GROUP_COLOR = {
 };
 
 function renderPeople() {
+  const statsEl = document.getElementById("people-stats");
+  if (statsEl) {
+    statsEl.textContent =
+      state.people.length === 0
+        ? ""
+        : `👪 ${state.people.length} pessoa${state.people.length > 1 ? "s" : ""} cadastrada${state.people.length > 1 ? "s" : ""}`;
+  }
   const container = document.getElementById("people-list");
   if (state.people.length === 0) {
     container.innerHTML = `<div class="empty-state"><span class="glyph">👪</span>Nenhuma pessoa cadastrada ainda. Cadastre pra escalar as receitas por perfil de porção.</div>`;
@@ -402,13 +409,43 @@ const CATEGORY_INFO = {
   acompanhamento: { icon: "🥗", color: "var(--plum)" },
 };
 
+let recipeFilterCategory = "todas";
+
+function setRecipeFilter(cat) {
+  recipeFilterCategory = cat;
+  renderRecipes();
+}
+
+function renderRecipeFilters() {
+  const filterContainer = document.getElementById("recipe-filters");
+  if (!filterContainer) return;
+  if (state.recipes.length === 0) {
+    filterContainer.innerHTML = "";
+    return;
+  }
+  const cats = ["todas", ...Object.keys(CATEGORY_INFO)];
+  filterContainer.innerHTML = cats
+    .map((cat) => {
+      const label = cat === "todas" ? "Todas" : cat.charAt(0).toUpperCase() + cat.slice(1);
+      return `<button type="button" class="filter-pill ${cat === recipeFilterCategory ? "active" : ""}" onclick="setRecipeFilter('${cat}')">${label}</button>`;
+    })
+    .join("");
+}
+
 function renderRecipes() {
+  renderRecipeFilters();
   const container = document.getElementById("recipes-list");
   if (state.recipes.length === 0) {
     container.innerHTML = `<div class="empty-state"><span class="glyph">🍳</span>Nenhuma receita cadastrada ainda.</div>`;
     return;
   }
-  container.innerHTML = state.recipes
+  const filtered =
+    recipeFilterCategory === "todas" ? state.recipes : state.recipes.filter((r) => r.category === recipeFilterCategory);
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="empty-state"><span class="glyph">🍲</span>Nenhuma receita nessa categoria ainda.</div>`;
+    return;
+  }
+  container.innerHTML = filtered
     .map((r) => {
       const cat = CATEGORY_INFO[r.category] || { icon: "🍲", color: "var(--ink-soft)" };
       return `
@@ -939,8 +976,8 @@ function renderShoppingList() {
     <div class="list-section-title">Já tenho em casa</div>
     ${haveKeys.length ? renderGroup(haveKeys, true) : '<div style="color:var(--ink-soft);font-size:0.85rem;padding:6px 4px;">Ainda nada marcado.</div>'}
     <div class="action-row">
-      <button class="btn btn-secondary" onclick="generateChecklist()">Recalcular da Semana</button>
-      <button class="btn btn-primary" onclick="shareList()">Compartilhar lista</button>
+      <button class="btn btn-secondary" onclick="generateChecklist()">🔄 Recalcular da Semana</button>
+      <button class="btn btn-primary" onclick="shareList()">📤 Compartilhar lista</button>
     </div>
     <div class="action-row">
       <button class="btn btn-secondary btn-block" onclick="exportListPdf()">📄 Baixar PDF com checklist</button>

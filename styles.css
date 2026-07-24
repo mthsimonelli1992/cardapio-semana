@@ -407,6 +407,35 @@ select:focus, input:focus, textarea:focus {
 .recipe-ing-list li:first-child { border-top: none; }
 .person-meta { font-size: 0.78rem; color: var(--ink-soft); margin-top: 2px; }
 
+.section-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--green-deep);
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  margin-bottom: 14px;
+}
+.section-stats:empty { display: none; }
+
+.filter-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.filter-pill {
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.filter-pill.active { background: var(--terracotta); border-color: var(--terracotta); color: white; }
+
 /* ---- People view ---- */
 .person-card { display: flex; align-items: center; gap: 12px; }
 .person-avatar {
