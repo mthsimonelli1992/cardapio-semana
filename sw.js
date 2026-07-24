@@ -1,4 +1,4 @@
-const CACHE_NAME = "cardapio-semana-v7";
+const CACHE_NAME = "cardapio-semana-v8";
 const ASSETS = [
   "./index.html",
   "./styles.css",
