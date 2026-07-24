@@ -255,6 +255,18 @@ h1, h2, h3 {
   color: var(--green-deep);
 }
 
+.meal-row-locked { opacity: 0.75; background: var(--paper-raised); }
+.lock-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  background: var(--line);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+.meal-locked-empty { font-size: 0.85rem; color: var(--ink-soft); font-style: italic; }
+.meal-locked-summary { font-size: 0.85rem; color: var(--ink); display: flex; flex-direction: column; gap: 4px; }
+
 .switch {
   position: relative;
   width: 40px; height: 22px;

@@ -210,6 +210,20 @@ function getWeekDates() {
   });
 }
 
+// Trava edição de refeições que já passaram: dia anterior a hoje trava por completo
+// (só consulta, se algo foi lançado); hoje, o almoço trava sozinho a partir das 14h,
+// deixando o jantar livre até o fim do dia.
+function getMealLock(dayDate, meal) {
+  const now = new Date();
+  const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dayOnly = new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate());
+  if (dayOnly < todayOnly) return { locked: true, reason: "past" };
+  if (dayOnly.getTime() === todayOnly.getTime() && meal === "almoco" && now.getHours() >= 14) {
+    return { locked: true, reason: "lunch-cutoff" };
+  }
+  return { locked: false, reason: null };
+}
+
 function renderPlanner() {
   const container = document.getElementById("planner-days");
   const weekDates = getWeekDates();
@@ -241,7 +255,7 @@ function renderPlanner() {
           <span class="day-summary-pill ${activeCount > 0 ? "has-meals" : ""}">${pillText}</span>
         </summary>
         <div class="day-body">
-          ${["almoco", "jantar"].map((meal) => mealRowHtml(d.key, meal, day[meal])).join("")}
+          ${["almoco", "jantar"].map((meal) => mealRowHtml(d.key, meal, day[meal], getMealLock(weekDates[i], meal))).join("")}
         </div>
       </details>
     `;
@@ -265,8 +279,52 @@ function renderHeaderStats() {
       : `🍳 ${count} refeiç${count > 1 ? "ões" : "ão"} planejada${count > 1 ? "s" : ""} essa semana`;
 }
 
-function mealRowHtml(dayKey, meal, data) {
+const LOCK_LABEL = {
+  past: "🔒 já passou",
+  "lunch-cutoff": "🔒 horário do almoço encerrado",
+};
+
+function mealRowHtml(dayKey, meal, data, lock) {
   const label = meal === "almoco" ? "☀️ Almoço" : "🌙 Jantar";
+  const locked = lock && lock.locked;
+
+  if (locked && !data.emCasa) {
+    // Nada foi lançado e o horário já passou — não dá mais pra planejar retroativamente.
+    return `
+      <div class="meal-row meal-row-locked">
+        <div class="meal-row-top">
+          <span class="meal-label">${label}</span>
+          <span class="lock-badge">${LOCK_LABEL[lock.reason]}</span>
+        </div>
+        <div class="meal-locked-empty">Sem plano lançado a tempo.</div>
+      </div>
+    `;
+  }
+
+  if (locked) {
+    // Foi lançado, mas o prazo passou — fica só pra consulta, sem editar.
+    const dishNames = data.recipeIds
+      .map((rid) => state.recipes.find((r) => r.id === rid)?.name)
+      .filter(Boolean)
+      .join(", ");
+    const peopleNames = state.people.filter((p) => data.peopleIds.includes(p.id)).map((p) => p.name);
+    const guestBits = [];
+    if (data.extra.adultos) guestBits.push(`${data.extra.adultos} adulto(s)`);
+    if (data.extra.criancas) guestBits.push(`${data.extra.criancas} criança(s)`);
+    const whoText = [...peopleNames, ...guestBits].join(", ") || "ninguém cadastrado";
+    return `
+      <div class="meal-row meal-row-locked">
+        <div class="meal-row-top">
+          <span class="meal-label">${label}</span>
+          <span class="lock-badge">${LOCK_LABEL[lock.reason]}</span>
+        </div>
+        <div class="meal-locked-summary">
+          <div><strong>Pratos:</strong> ${dishNames || "—"}</div>
+          <div><strong>Quem comeu:</strong> ${whoText}</div>
+        </div>
+      </div>
+    `;
+  }
 
   const dishRows = data.recipeIds
     .map(
