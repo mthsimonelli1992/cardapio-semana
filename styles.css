@@ -255,7 +255,8 @@ h1, h2, h3 {
   color: var(--ink);
   border: 1px solid transparent;
 }
-.day-strip-item.today .day-strip-num { background: var(--terracotta); color: white; }
+.day-strip-item.selected .day-strip-num { background: var(--terracotta); color: white; }
+.day-strip-item.today:not(.selected) .day-strip-num { border-color: var(--terracotta); color: var(--terracotta); font-weight: 700; }
 
 .inicio-today-card {
   background: var(--paper-raised);
@@ -264,7 +265,19 @@ h1, h2, h3 {
   box-shadow: var(--shadow);
   padding: 16px;
   margin-bottom: 18px;
+}
+.inicio-today-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.inicio-goto-cardapio {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.78rem;
+  color: var(--green-deep);
   cursor: pointer;
+  padding: 4px 0;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .inicio-today-date {
   font-family: 'Fraunces', serif;

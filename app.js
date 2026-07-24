@@ -192,7 +192,10 @@ function switchView(name) {
   document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
   document.getElementById("view-" + name).classList.add("active");
   document.querySelector('.tab-btn[data-view="' + name + '"]').classList.add("active");
-  if (name === "inicio") renderInicio();
+  if (name === "inicio") {
+    inicioSelectedDayKey = null; // volta a evidenciar hoje toda vez que entra na aba
+    renderInicio();
+  }
   if (name === "pessoas") renderPeople();
   if (name === "receitas") renderRecipes();
   if (name === "lista") renderShoppingList();
@@ -318,6 +321,15 @@ function renderPlanner() {
 // ===== Início =====
 const DAY_STRIP_LETTER = { seg: "S", ter: "T", qua: "Q", qui: "Q", sex: "S", sab: "S", dom: "D" };
 
+// Dia em evidência no card abaixo da faixa — null = usa hoje. Fica selecionado enquanto o
+// usuário navega dentro da aba; volta a ser hoje toda vez que entra de novo (ver switchView).
+let inicioSelectedDayKey = null;
+
+function selectInicioDay(dayKey) {
+  inicioSelectedDayKey = dayKey;
+  renderInicio();
+}
+
 function jumpToCardapioDay(dayKey) {
   switchView("semana");
   requestAnimationFrame(() => {
@@ -336,24 +348,28 @@ function renderInicio() {
 
   const weekDates = getWeekDates(0);
   const todayStr = new Date().toDateString();
+  const todayIdx = weekDates.findIndex((dt) => dt.toDateString() === todayStr);
+  const todayKey = DAYS[todayIdx] ? DAYS[todayIdx].key : DAYS[0].key;
+  if (!inicioSelectedDayKey) inicioSelectedDayKey = todayKey;
+  const selectedIdx = DAYS.findIndex((d) => d.key === inicioSelectedDayKey);
+
   strip.innerHTML = DAYS.map((d, i) => {
-    const isToday = weekDates[i].toDateString() === todayStr;
+    const isToday = i === todayIdx;
+    const isSelected = d.key === inicioSelectedDayKey;
     return `
-      <button type="button" class="day-strip-item ${isToday ? "today" : ""}" onclick="jumpToCardapioDay('${d.key}')">
+      <button type="button" class="day-strip-item ${isToday ? "today" : ""} ${isSelected ? "selected" : ""}" onclick="selectInicioDay('${d.key}')">
         <span class="day-strip-letter">${DAY_STRIP_LETTER[d.key]}</span>
         <span class="day-strip-num">${weekDates[i].getDate()}</span>
       </button>
     `;
   }).join("");
 
-  const todayIdx = weekDates.findIndex((dt) => dt.toDateString() === todayStr);
-  const todayKey = DAYS[todayIdx] ? DAYS[todayIdx].key : DAYS[0].key;
-  const todayData = getWeek(getCurrentWeekKey())[todayKey];
-  const todayCardEl = document.getElementById("inicio-today-card");
-  if (todayCardEl) {
+  const selectedData = getWeek(getCurrentWeekKey())[inicioSelectedDayKey];
+  const evidenceCardEl = document.getElementById("inicio-today-card");
+  if (evidenceCardEl) {
     const mealsHtml = ["almoco", "jantar"]
       .map((meal) => {
-        const m = todayData[meal];
+        const m = selectedData[meal];
         const label = meal === "almoco" ? "☀️ Almoço" : "🌙 Jantar";
         if (m.emCasa && m.recipeIds.length) {
           const names = m.recipeIds
@@ -365,10 +381,16 @@ function renderInicio() {
         return `<div class="inicio-meal-line inicio-meal-empty"><span>${label}</span><span>não planejado</span></div>`;
       })
       .join("");
-    todayCardEl.innerHTML = `
-      <div class="inicio-today-card" onclick="jumpToCardapioDay('${todayKey}')">
-        <span class="eyebrow">Hoje</span>
-        <div class="inicio-today-date">${weekDates[todayIdx].toLocaleDateString("pt-BR", { day: "2-digit", month: "long" })}</div>
+    const dayLabel = inicioSelectedDayKey === todayKey ? "Hoje" : DAYS[selectedIdx].label;
+    evidenceCardEl.innerHTML = `
+      <div class="inicio-today-card">
+        <div class="inicio-today-head">
+          <div>
+            <span class="eyebrow">${dayLabel}</span>
+            <div class="inicio-today-date">${weekDates[selectedIdx].toLocaleDateString("pt-BR", { day: "2-digit", month: "long" })}</div>
+          </div>
+          <button type="button" class="inicio-goto-cardapio" onclick="jumpToCardapioDay('${inicioSelectedDayKey}')">Ver no Cardápio ›</button>
+        </div>
         ${mealsHtml}
       </div>
     `;
@@ -376,7 +398,8 @@ function renderInicio() {
 
   const recentContainer = document.getElementById("inicio-recent-recipes");
   if (recentContainer) {
-    const recent = state.recipes.slice(-10).reverse();
+    const seedIds = new Set(SEED_RECIPES.map((r) => r.id));
+    const recent = state.recipes.filter((r) => !seedIds.has(r.id)).slice(-10).reverse();
     recentContainer.innerHTML = recent.length
       ? recent
           .map((r) => {
@@ -392,7 +415,7 @@ function renderInicio() {
         `;
           })
           .join("")
-      : `<div class="empty-state" style="min-width:100%"><span class="glyph">🍳</span>Nenhuma receita salva ainda.</div>`;
+      : `<div class="empty-state" style="min-width:100%"><span class="glyph">🍳</span>Nenhuma receita sua importada ou criada ainda.</div>`;
   }
 }
 
