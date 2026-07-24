@@ -41,8 +41,24 @@
     <div id="header-stats" class="header-stats"></div>
   </header>
 
+  <!-- ===== Aba: Início ===== -->
+  <section id="view-inicio" class="view active">
+    <div id="inicio-daystrip" class="day-strip"></div>
+    <div id="inicio-today-card"></div>
+    <div class="inicio-quick-actions">
+      <button type="button" class="inicio-quick-btn" onclick="openImportModal()">
+        <span class="inicio-quick-icon">✨</span>Importar receita
+      </button>
+      <button type="button" class="inicio-quick-btn" onclick="switchView('receitas')">
+        <span class="inicio-quick-icon">📖</span>Ver receitas
+      </button>
+    </div>
+    <span class="eyebrow inicio-recent-label">Receitas salvas</span>
+    <div id="inicio-recent-recipes" class="inicio-recipe-row"></div>
+  </section>
+
   <!-- ===== Aba: Cardápio ===== -->
-  <section id="view-semana" class="view active">
+  <section id="view-semana" class="view">
     <div id="planner-days"></div>
     <div id="next-week-section" class="next-week-section"></div>
   </section>
@@ -74,7 +90,10 @@
 
 <nav class="tabbar">
   <div class="tabbar-inner">
-    <button class="tab-btn active" data-view="semana" onclick="switchView('semana')">
+    <button class="tab-btn active" data-view="inicio" onclick="switchView('inicio')">
+      <span class="tab-icon">🏠</span>Início
+    </button>
+    <button class="tab-btn" data-view="semana" onclick="switchView('semana')">
       <span class="tab-icon">📅</span>Cardápio
     </button>
     <button class="tab-btn" data-view="pessoas" onclick="switchView('pessoas')">

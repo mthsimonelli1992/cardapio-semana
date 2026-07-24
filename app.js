@@ -192,6 +192,7 @@ function switchView(name) {
   document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
   document.getElementById("view-" + name).classList.add("active");
   document.querySelector('.tab-btn[data-view="' + name + '"]').classList.add("active");
+  if (name === "inicio") renderInicio();
   if (name === "pessoas") renderPeople();
   if (name === "receitas") renderRecipes();
   if (name === "lista") renderShoppingList();
@@ -311,6 +312,88 @@ function renderPlanner() {
     `;
   }
   renderHeaderStats();
+  renderInicio();
+}
+
+// ===== Início =====
+const DAY_STRIP_LETTER = { seg: "S", ter: "T", qua: "Q", qui: "Q", sex: "S", sab: "S", dom: "D" };
+
+function jumpToCardapioDay(dayKey) {
+  switchView("semana");
+  requestAnimationFrame(() => {
+    const idx = DAYS.findIndex((d) => d.key === dayKey);
+    const card = document.querySelectorAll("#planner-days .day-card")[idx];
+    if (card) {
+      card.setAttribute("open", "");
+      card.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  });
+}
+
+function renderInicio() {
+  const strip = document.getElementById("inicio-daystrip");
+  if (!strip) return; // view ainda não existe no DOM
+
+  const weekDates = getWeekDates(0);
+  const todayStr = new Date().toDateString();
+  strip.innerHTML = DAYS.map((d, i) => {
+    const isToday = weekDates[i].toDateString() === todayStr;
+    return `
+      <button type="button" class="day-strip-item ${isToday ? "today" : ""}" onclick="jumpToCardapioDay('${d.key}')">
+        <span class="day-strip-letter">${DAY_STRIP_LETTER[d.key]}</span>
+        <span class="day-strip-num">${weekDates[i].getDate()}</span>
+      </button>
+    `;
+  }).join("");
+
+  const todayIdx = weekDates.findIndex((dt) => dt.toDateString() === todayStr);
+  const todayKey = DAYS[todayIdx] ? DAYS[todayIdx].key : DAYS[0].key;
+  const todayData = getWeek(getCurrentWeekKey())[todayKey];
+  const todayCardEl = document.getElementById("inicio-today-card");
+  if (todayCardEl) {
+    const mealsHtml = ["almoco", "jantar"]
+      .map((meal) => {
+        const m = todayData[meal];
+        const label = meal === "almoco" ? "☀️ Almoço" : "🌙 Jantar";
+        if (m.emCasa && m.recipeIds.length) {
+          const names = m.recipeIds
+            .map((rid) => state.recipes.find((r) => r.id === rid)?.name)
+            .filter(Boolean)
+            .join(", ");
+          return `<div class="inicio-meal-line"><span>${label}</span><strong>${names}</strong></div>`;
+        }
+        return `<div class="inicio-meal-line inicio-meal-empty"><span>${label}</span><span>não planejado</span></div>`;
+      })
+      .join("");
+    todayCardEl.innerHTML = `
+      <div class="inicio-today-card" onclick="jumpToCardapioDay('${todayKey}')">
+        <span class="eyebrow">Hoje</span>
+        <div class="inicio-today-date">${weekDates[todayIdx].toLocaleDateString("pt-BR", { day: "2-digit", month: "long" })}</div>
+        ${mealsHtml}
+      </div>
+    `;
+  }
+
+  const recentContainer = document.getElementById("inicio-recent-recipes");
+  if (recentContainer) {
+    const recent = state.recipes.slice(-10).reverse();
+    recentContainer.innerHTML = recent.length
+      ? recent
+          .map((r) => {
+            const cat = CATEGORY_INFO[r.category] || { icon: "🍲", color: "var(--ink-soft)" };
+            const thumb = r.coverImage
+              ? `<div class="inicio-recipe-thumb" style="background-image:url('${r.coverImage}')"></div>`
+              : `<div class="inicio-recipe-thumb inicio-recipe-thumb-icon" style="background:${cat.color}">${cat.icon}</div>`;
+            return `
+          <div class="inicio-recipe-card" onclick="switchView('receitas'); openRecipeDetail('${r.id}')">
+            ${thumb}
+            <div class="inicio-recipe-name">${r.name}</div>
+          </div>
+        `;
+          })
+          .join("")
+      : `<div class="empty-state" style="min-width:100%"><span class="glyph">🍳</span>Nenhuma receita salva ainda.</div>`;
+  }
 }
 
 function renderHeaderStats() {
@@ -665,6 +748,7 @@ function renderRecipeFilters() {
 
 function renderRecipes() {
   renderRecipeFilters();
+  renderInicio();
   const container = document.getElementById("recipes-list");
   if (state.recipes.length === 0) {
     container.innerHTML = `<div class="empty-state"><span class="glyph">🍳</span>Nenhuma receita cadastrada ainda.</div>`;
@@ -1655,6 +1739,7 @@ async function enterApp(user) {
   document.getElementById("app").classList.remove("hidden");
   state = await loadStateFromDB(currentUserId);
   saveState();
+  renderInicio();
   renderPlanner();
   renderPeople();
   renderRecipes();
