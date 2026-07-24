@@ -130,30 +130,44 @@
 <!-- ===== Modal: Importar receita com IA ===== -->
 <div id="modal-import-recipe" class="modal-backdrop hidden">
   <div class="modal-sheet">
-    <h2>Importar receita com IA</h2>
-    <p class="import-hint">Cole um link de vídeo, o texto de uma receita, envie um PDF, ou envie o vídeo salvo. Você confere tudo antes de salvar.</p>
+    <div class="modal-close-row">
+      <h2>Importar receita</h2>
+      <button type="button" class="modal-x" onclick="closeImportModal()">✕</button>
+    </div>
+    <div class="import-platforms">📹 🎵 📷 🌐</div>
+    <p class="import-hint">Importe de qualquer rede social, site de receita ou documento.</p>
 
-    <label class="field-label">Link do YouTube, TikTok ou Instagram (opcional)</label>
-    <div class="dish-row">
-      <input type="text" id="import-link-input" placeholder="https://..." />
-      <button class="btn btn-secondary" onclick="handleImportLink()">Buscar</button>
+    <input type="text" id="import-link-input" placeholder="Colar link" />
+
+    <div class="import-or"><span>ou</span></div>
+
+    <div class="import-icon-grid">
+      <label class="import-icon-btn">
+        <input type="file" id="import-image-input" accept="image/*" class="hidden" onchange="handleImportImage(event)" />
+        <span class="import-icon-circle">🖼️</span>
+        Imagem
+      </label>
+      <button type="button" class="import-icon-btn" onclick="toggleImportTextArea()">
+        <span class="import-icon-circle">📝</span>
+        Texto
+      </button>
+      <label class="import-icon-btn">
+        <input type="file" id="import-pdf-input" accept="application/pdf" class="hidden" onchange="handleImportPdf(event)" />
+        <span class="import-icon-circle">📄</span>
+        PDF
+      </label>
+      <label class="import-icon-btn">
+        <input type="file" id="import-video-input" accept="video/*" class="hidden" onchange="handleImportVideo(event)" />
+        <span class="import-icon-circle">🎬</span>
+        Vídeo
+      </label>
     </div>
 
-    <label class="field-label">Ou enviar o vídeo salvo no aparelho</label>
-    <input type="file" id="import-video-input" accept="video/*" onchange="handleImportVideo(event)" />
-
-    <label class="field-label">Enviar PDF (opcional)</label>
-    <input type="file" id="import-pdf-input" accept="application/pdf" onchange="handleImportPdf(event)" />
-
-    <label class="field-label">Cole o texto ou a legenda aqui (obrigatório se não enviar vídeo/PDF)</label>
-    <textarea id="import-text" rows="6" placeholder="Cole a receita completa, ou a legenda do vídeo como contexto extra..."></textarea>
+    <textarea id="import-text" rows="5" class="hidden" placeholder="Cole a receita completa, ou a legenda do vídeo como contexto extra..."></textarea>
 
     <div id="import-status" class="import-status hidden"></div>
 
-    <div class="action-row">
-      <button class="btn btn-secondary" onclick="closeImportModal()">Cancelar</button>
-      <button class="btn btn-primary" id="import-extract-btn" onclick="extractRecipesWithAI()">✨ Extrair receitas</button>
-    </div>
+    <button class="btn btn-primary btn-block" id="import-extract-btn" onclick="handleImportSubmit()" style="margin-top:16px">Importar</button>
 
     <div id="import-review"></div>
   </div>
@@ -170,6 +184,13 @@
   </div>
 </div>
 
+<!-- ===== Modal: Detalhe da receita ===== -->
+<div id="modal-recipe-detail" class="modal-backdrop hidden">
+  <div class="modal-sheet modal-sheet-flush">
+    <div id="recipe-detail-content"></div>
+  </div>
+</div>
+
 <!-- ===== Modal: Nova receita ===== -->
 <div id="modal-new-recipe" class="modal-backdrop hidden">
   <div class="modal-sheet">
@@ -183,7 +204,11 @@
       <option value="café da manhã">Café da manhã</option>
       <option value="prato principal" selected>Prato principal</option>
       <option value="acompanhamento">Acompanhamento</option>
+      <option value="sobremesa">Sobremesa</option>
     </select>
+
+    <label class="field-label">Modo de preparo (um passo por linha)</label>
+    <textarea id="nr-instructions" rows="5" placeholder="Ex:&#10;Tempere a carne com sal e pimenta.&#10;Aqueça a panela e sele os dois lados."></textarea>
 
     <label class="field-label">Rende quantas porções</label>
     <input type="number" id="nr-servings" min="1" value="4" />

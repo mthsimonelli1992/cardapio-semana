@@ -407,6 +407,7 @@ const CATEGORY_INFO = {
   "café da manhã": { icon: "🍳", color: "var(--mustard)" },
   "prato principal": { icon: "🍽️", color: "var(--green)" },
   acompanhamento: { icon: "🥗", color: "var(--plum)" },
+  sobremesa: { icon: "🍰", color: "var(--terracotta)" },
 };
 
 let recipeFilterCategory = "todas";
@@ -449,31 +450,71 @@ function renderRecipes() {
     .map((r) => {
       const cat = CATEGORY_INFO[r.category] || { icon: "🍲", color: "var(--ink-soft)" };
       return `
-    <div class="recipe-card" style="--accent:${cat.color}">
-      <div class="recipe-card-top">
-        <div class="recipe-thumb" style="background:${cat.color}">${cat.icon}</div>
-        <div style="flex:1">
-          <div class="recipe-name">${r.name}</div>
-          <div class="person-meta">${r.category} · rende ${r.baseServings} porç.</div>
-        </div>
-        <div class="recipe-card-actions">
-          <button class="btn-ghost" onclick="openEditRecipeModal('${r.id}')">editar</button>
-          <button class="btn-danger-ghost" onclick="deleteRecipe('${r.id}')">remover</button>
-        </div>
+    <div class="recipe-card recipe-card-compact" style="--accent:${cat.color}" onclick="openRecipeDetail('${r.id}')">
+      <div class="recipe-thumb" style="background:${cat.color}">${cat.icon}</div>
+      <div style="flex:1">
+        <div class="recipe-name">${r.name}</div>
+        <div class="person-meta">${r.category}</div>
       </div>
-      <ul class="recipe-ing-list">
-        ${r.ingredients.map((i) => `<li>${i.qty} ${i.unit} — ${i.name}</li>`).join("")}
-      </ul>
+      <span class="recipe-card-chevron">›</span>
     </div>
   `;
     })
     .join("");
 }
 
+const SOURCE_ICON = {
+  instagram: "📷 Instagram",
+  tiktok: "🎵 TikTok",
+  youtube: "▶️ YouTube",
+  web: "🌐 Site",
+  video: "🎬 Vídeo enviado",
+};
+
+function openRecipeDetail(id) {
+  const recipe = state.recipes.find((r) => r.id === id);
+  if (!recipe) return;
+  const cat = CATEGORY_INFO[recipe.category] || { icon: "🍲", color: "var(--ink-soft)" };
+  const cover = recipe.coverImage
+    ? `<div class="recipe-detail-cover" style="background-image:url('${recipe.coverImage}')"></div>`
+    : `<div class="recipe-detail-cover recipe-detail-cover-illustration" style="background:${cat.color}"><span>${cat.icon}</span></div>`;
+  const sourceBadge =
+    recipe.sourceUrl && recipe.sourcePlatform
+      ? `<a href="${recipe.sourceUrl}" target="_blank" rel="noopener" class="source-badge">${SOURCE_ICON[recipe.sourcePlatform] || "🔗 Fonte"}</a>`
+      : "";
+  const instructionsHtml =
+    recipe.instructions && recipe.instructions.length
+      ? `<span class="field-label">Modo de preparo</span><ol class="recipe-steps-list">${recipe.instructions.map((s) => `<li>${s}</li>`).join("")}</ol>`
+      : "";
+  document.getElementById("recipe-detail-content").innerHTML = `
+    ${cover}
+    <div class="recipe-detail-body">
+      ${sourceBadge}
+      <span class="recipe-detail-category" style="color:${cat.color}">${cat.icon} ${recipe.category}</span>
+      <h2 class="recipe-detail-name">${recipe.name}</h2>
+      <div class="person-meta">Rende ${recipe.baseServings} porç.</div>
+      <span class="field-label">Ingredientes</span>
+      <ul class="recipe-ing-list">${recipe.ingredients.map((i) => `<li>${i.qty} ${i.unit} — ${i.name}</li>`).join("")}</ul>
+      ${instructionsHtml}
+      <div class="action-row">
+        <button class="btn btn-secondary" onclick="closeRecipeDetail(); openEditRecipeModal('${id}')">editar</button>
+        <button class="btn btn-danger-ghost" onclick="deleteRecipe('${id}')">remover</button>
+      </div>
+      <button class="btn btn-secondary btn-block" style="margin-top:10px" onclick="closeRecipeDetail()">Fechar</button>
+    </div>
+  `;
+  document.getElementById("modal-recipe-detail").classList.remove("hidden");
+}
+
+function closeRecipeDetail() {
+  document.getElementById("modal-recipe-detail").classList.add("hidden");
+}
+
 function deleteRecipe(id) {
   if (!confirm("Remover esta receita da base?")) return;
   state.recipes = state.recipes.filter((r) => r.id !== id);
   saveState();
+  closeRecipeDetail();
   renderRecipes();
   renderPlanner();
 }
@@ -488,6 +529,7 @@ function openNewRecipeModal() {
   document.getElementById("nr-name").value = "";
   document.getElementById("nr-category").value = "prato principal";
   document.getElementById("nr-servings").value = 4;
+  document.getElementById("nr-instructions").value = "";
   renderNewRecipeIngredients();
   document.getElementById("modal-new-recipe").classList.remove("hidden");
 }
@@ -501,6 +543,7 @@ function openEditRecipeModal(id) {
   document.getElementById("nr-name").value = recipe.name;
   document.getElementById("nr-category").value = recipe.category;
   document.getElementById("nr-servings").value = recipe.baseServings;
+  document.getElementById("nr-instructions").value = (recipe.instructions || []).join("\n");
   renderNewRecipeIngredients();
   document.getElementById("modal-new-recipe").classList.remove("hidden");
 }
@@ -537,16 +580,21 @@ function saveNewRecipe() {
   const ingredients = newRecipeIngredients
     .filter((i) => i.name.trim() && i.qty)
     .map((i) => ({ name: i.name.trim(), qty: parseFloat(i.qty), unit: i.unit.trim() || "un" }));
+  const instructions = document
+    .getElementById("nr-instructions")
+    .value.split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
   if (!name || ingredients.length === 0) {
     alert("Dá um nome pra receita e pelo menos um ingrediente com quantidade.");
     return;
   }
   if (editingRecipeId) {
     const recipe = state.recipes.find((r) => r.id === editingRecipeId);
-    Object.assign(recipe, { name, category, baseServings, ingredients });
+    Object.assign(recipe, { name, category, baseServings, ingredients, instructions });
   } else {
     const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Date.now();
-    state.recipes.push({ id, name, category, baseServings, ingredients });
+    state.recipes.push({ id, name, category, baseServings, ingredients, instructions });
   }
   saveState();
   closeNewRecipeModal();
@@ -559,13 +607,21 @@ let pendingVideoFrames = null;
 
 function openImportModal() {
   document.getElementById("import-text").value = "";
+  document.getElementById("import-text").classList.add("hidden");
   document.getElementById("import-link-input").value = "";
   document.getElementById("import-pdf-input").value = "";
   document.getElementById("import-video-input").value = "";
+  document.getElementById("import-image-input").value = "";
   document.getElementById("import-status").classList.add("hidden");
   document.getElementById("import-review").innerHTML = "";
   pendingVideoFrames = null;
+  pendingImportSource = null;
   document.getElementById("modal-import-recipe").classList.remove("hidden");
+}
+function toggleImportTextArea() {
+  const el = document.getElementById("import-text");
+  el.classList.toggle("hidden");
+  if (!el.classList.contains("hidden")) el.focus();
 }
 function closeImportModal() {
   document.getElementById("modal-import-recipe").classList.add("hidden");
@@ -592,9 +648,31 @@ async function handleImportPdf(event) {
       text += content.items.map((it) => it.str).join(" ") + "\n";
     }
     document.getElementById("import-text").value = text.trim();
-    setImportStatus(`PDF lido (${pdf.numPages} página${pdf.numPages > 1 ? "s" : ""}). Confira o texto e clique em "Extrair receitas".`);
+    document.getElementById("import-text").classList.remove("hidden");
+    setImportStatus(`PDF lido (${pdf.numPages} página${pdf.numPages > 1 ? "s" : ""}). Confira o texto e clique em "Importar".`);
   } catch (e) {
     setImportStatus("Não consegui ler esse PDF. Tenta colar o texto manualmente.");
+  }
+}
+
+// Reaproveita o mesmo caminho de "frames de vídeo" pra uma imagem única (foto de receita,
+// print, etc.) — pro back-end tanto faz vir de vídeo quanto de uma imagem só.
+async function handleImportImage(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  setImportStatus("Lendo imagem...");
+  try {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    pendingVideoFrames = [dataUrl.split(",")[1]];
+    setImportStatus('Imagem carregada. Clique em "Importar".');
+  } catch (e) {
+    pendingVideoFrames = null;
+    setImportStatus("Não consegui ler essa imagem.");
   }
 }
 
@@ -602,10 +680,20 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Botão único do modal: decide o caminho certo (link vs. o que já foi selecionado/colado).
+function handleImportSubmit() {
+  const url = document.getElementById("import-link-input").value.trim();
+  if (url) {
+    handleImportLink();
+    return;
+  }
+  extractRecipesWithAI();
+}
+
 async function handleImportLink() {
   const url = document.getElementById("import-link-input").value.trim();
   if (!url) {
-    alert("Cole um link de vídeo do YouTube, TikTok ou Instagram.");
+    alert("Cole um link de vídeo, site de receita, ou use um dos ícones abaixo.");
     return;
   }
   document.getElementById("import-review").innerHTML = "";
@@ -634,7 +722,7 @@ async function handleImportLink() {
         return;
       }
       setImportStatus(`${startData.recipes.length} receita(s) encontrada(s). Confira antes de salvar:`);
-      renderImportReview(startData.recipes);
+      renderImportReview(startData.recipes, { sourceUrl: url, sourcePlatform: startData.platform, coverImage: startData.coverImage });
       return;
     }
 
@@ -661,7 +749,7 @@ async function handleImportLink() {
           return;
         }
         setImportStatus(`${data.recipes.length} receita(s) encontrada(s). Confira antes de salvar:`);
-        renderImportReview(data.recipes);
+        renderImportReview(data.recipes, { sourceUrl: url, sourcePlatform: data.platform, coverImage: data.coverImage });
         return;
       }
     }
@@ -725,9 +813,7 @@ async function handleImportVideo(event) {
   setImportStatus("Capturando quadros do vídeo...");
   try {
     pendingVideoFrames = await extractVideoFrames(file, 6);
-    setImportStatus(
-      `${pendingVideoFrames.length} quadros capturados. Se quiser, cole a legenda do vídeo no campo de texto (ajuda a IA) e clique em "Extrair receitas".`
-    );
+    setImportStatus(`${pendingVideoFrames.length} quadros capturados. Clique em "Importar" quando quiser.`);
   } catch (e) {
     pendingVideoFrames = null;
     setImportStatus("Não consegui processar esse vídeo. Tenta outro arquivo.");
@@ -740,7 +826,7 @@ async function extractRecipesWithAI() {
   const text = document.getElementById("import-text").value.trim();
   const usingVideo = pendingVideoFrames && pendingVideoFrames.length > 0;
   if (!usingVideo && text.length < 20) {
-    alert("Cole o texto da receita, ou envie um vídeo/PDF primeiro.");
+    alert("Cole um link, o texto da receita, ou envie uma imagem/PDF/vídeo primeiro.");
     return;
   }
   const btn = document.getElementById("import-extract-btn");
@@ -762,7 +848,7 @@ async function extractRecipesWithAI() {
       return;
     }
     setImportStatus(`${data.recipes.length} receita(s) encontrada(s). Confira antes de salvar:`);
-    renderImportReview(data.recipes);
+    renderImportReview(data.recipes, { sourceUrl: null, sourcePlatform: data.platform || null, coverImage: data.coverImage || null });
   } catch (e) {
     if (e instanceof TypeError) {
       setImportStatus('Não consegui falar com o servidor de IA — isso só funciona na versão publicada (Vercel), não abrindo o arquivo local direto.');
@@ -774,8 +860,11 @@ async function extractRecipesWithAI() {
   }
 }
 
-function renderImportReview(recipes) {
+let pendingImportSource = null;
+
+function renderImportReview(recipes, source) {
   pendingImportRecipes = recipes;
+  pendingImportSource = source || null;
   document.getElementById("import-review").innerHTML = recipes
     .map(
       (r, idx) => `
@@ -789,6 +878,11 @@ function renderImportReview(recipes) {
       <ul class="recipe-ing-list">
         ${(r.ingredientes || []).map((i) => `<li>${i.quantidade} ${i.unidade} — ${i.nome}</li>`).join("")}
       </ul>
+      ${
+        r.modo_preparo && r.modo_preparo.length
+          ? `<ol class="recipe-steps-list">${r.modo_preparo.map((s) => `<li>${s}</li>`).join("")}</ol>`
+          : ""
+      }
       <div class="action-row">
         <button class="btn btn-secondary" onclick="discardImportedRecipe(${idx})">Descartar</button>
         <button class="btn btn-primary" onclick="acceptImportedRecipe(${idx})">Adicionar ao banco</button>
@@ -813,6 +907,10 @@ function acceptImportedRecipe(idx) {
       qty: Number(i.quantidade) || 1,
       unit: i.unidade || "un",
     })),
+    instructions: r.modo_preparo || [],
+    sourceUrl: pendingImportSource?.sourceUrl || null,
+    sourcePlatform: pendingImportSource?.sourcePlatform || null,
+    coverImage: pendingImportSource?.coverImage || null,
   });
   saveState();
   renderRecipes();

@@ -40,7 +40,8 @@ export default async function handler(req, res) {
 
   try {
     const recipes = await callClaudeForRecipes(apiKey, content);
-    res.status(200).json({ recipes });
+    const coverImage = frames[0] ? `data:image/jpeg;base64,${frames[0]}` : null;
+    res.status(200).json({ recipes, platform: "video", coverImage });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message, details: e.details || String(e) });
   }

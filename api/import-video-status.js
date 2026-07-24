@@ -78,7 +78,7 @@ export default async function handler(req, res) {
       ];
 
       const recipes = await callClaudeForRecipes(anthropicKey, content);
-      res.status(200).json({ status: "done", recipes });
+      res.status(200).json({ status: "done", recipes, platform, coverImage: extracted.coverImage || null });
     } finally {
       if (workDir) fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
     }
