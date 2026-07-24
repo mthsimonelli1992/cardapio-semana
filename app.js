@@ -616,10 +616,15 @@ function openRecipeDetail(id) {
     recipe.instructions && recipe.instructions.length
       ? `<span class="field-label">Modo de preparo</span><ol class="recipe-steps-list">${recipe.instructions.map((s) => `<li>${s}</li>`).join("")}</ol>`
       : "";
+  const canRefreshCover = recipe.sourceUrl && (recipe.sourcePlatform === "instagram" || recipe.sourcePlatform === "tiktok");
+  const refreshCoverBtn = canRefreshCover
+    ? `<button type="button" id="cover-refresh-btn" class="btn-ghost" onclick="refreshRecipeCover('${id}')">🔄 Atualizar capa</button><span id="cover-refresh-status" class="cover-refresh-status"></span>`
+    : "";
   document.getElementById("recipe-detail-content").innerHTML = `
     ${cover}
     <div class="recipe-detail-body">
       ${sourceBadge}
+      ${refreshCoverBtn}
       <span class="recipe-detail-category" style="color:${cat.color}">${cat.icon} ${recipe.category}</span>
       <h2 class="recipe-detail-name">${recipe.name}</h2>
       <div class="person-meta">Rende ${recipe.baseServings} porç.</div>
@@ -638,6 +643,47 @@ function openRecipeDetail(id) {
 
 function closeRecipeDetail() {
   hideModal("modal-recipe-detail");
+}
+
+async function refreshRecipeCover(id) {
+  const recipe = state.recipes.find((r) => r.id === id);
+  if (!recipe || !recipe.sourceUrl) return;
+  const btn = document.getElementById("cover-refresh-btn");
+  const status = document.getElementById("cover-refresh-status");
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = "Buscando a capa de novo...";
+  try {
+    const startRes = await fetch("/api/refresh-cover-start", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url: recipe.sourceUrl }),
+    });
+    const startData = await startRes.json();
+    if (!startRes.ok) throw new Error(startData.error || "Erro ao buscar a capa.");
+
+    const { runId, platform } = startData;
+    const maxAttempts = 30; // ~2.5 minutos
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      await sleep(5000);
+      if (status) status.textContent = `Buscando a capa de novo... (${attempt * 5}s)`;
+      const checkRes = await fetch(`/api/refresh-cover-status?runId=${encodeURIComponent(runId)}&platform=${encodeURIComponent(platform)}`);
+      const data = await checkRes.json();
+      if (data.status === "running") continue;
+      if (data.status === "error") throw new Error(data.error);
+      if (data.status === "done") {
+        if (!data.coverImage) throw new Error("Não encontrei uma capa dessa vez.");
+        recipe.coverImage = data.coverImage;
+        await saveState();
+        openRecipeDetail(id);
+        renderRecipes();
+        return;
+      }
+    }
+    throw new Error("Demorou demais pra buscar a capa. Tenta de novo.");
+  } catch (e) {
+    if (status) status.textContent = "Erro: " + e.message;
+    if (btn) btn.disabled = false;
+  }
 }
 
 function deleteRecipe(id) {

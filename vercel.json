@@ -3,6 +3,8 @@
     "api/parse-recipe.js": { "maxDuration": 30 },
     "api/parse-recipe-video.js": { "maxDuration": 45 },
     "api/import-video-start.js": { "maxDuration": 60 },
-    "api/import-video-status.js": { "maxDuration": 90 }
+    "api/import-video-status.js": { "maxDuration": 90 },
+    "api/refresh-cover-start.js": { "maxDuration": 30 },
+    "api/refresh-cover-status.js": { "maxDuration": 60 }
   }
 }

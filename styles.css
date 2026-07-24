@@ -435,6 +435,7 @@ select:focus, input:focus, textarea:focus {
 .btn-primary:hover { background: var(--green-deep); }
 .btn-secondary { background: var(--paper-raised); color: var(--ink); border: 1px solid var(--line); }
 .btn-ghost { background: none; color: var(--green-deep); padding: 8px 4px; font-family: inherit; font-weight: 600; cursor: pointer; border: none; }
+.cover-refresh-status { font-size: 0.78rem; color: var(--ink-soft); margin-left: 4px; }
 .btn-block { width: 100%; }
 .btn-danger-ghost { background: none; color: var(--plum); border: none; font-size: 0.8rem; font-weight: 600; cursor: pointer; padding: 4px 8px; font-family: inherit; }
 
