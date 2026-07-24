@@ -68,6 +68,12 @@ export default async function handler(req, res) {
         ? await processAudioOnlyUrl(extracted.mediaUrl, workDir, groqKey)
         : await processVideoUrl(extracted.mediaUrl, workDir, extracted.ext, groqKey, extracted.duration);
       console.error("[import] transcript.length:", transcript.length, "frames:", frames.length);
+      // Nem todo ator de download devolve thumbnail própria (o do Instagram nunca devolve, por
+      // exemplo). Como já extraímos frames do vídeo pra IA ler, usa o primeiro frame como capa
+      // de última instância — sempre disponível quando há vídeo baixado com sucesso.
+      if (!extracted.coverImage && frames.length > 0) {
+        extracted.coverImage = `data:image/jpeg;base64,${frames[0]}`;
+      }
 
       const content = [
         {
