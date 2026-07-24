@@ -1395,6 +1395,51 @@ async function extractRecipesWithAI() {
 
 let pendingImportSource = null;
 
+// Remove acentos e caixa pra comparar nomes de ingrediente sem falso-negativo bobo
+// ("Óleo" vs "oleo"), sem tentar interpretar significado.
+function normalizeIngName(name) {
+  return (name || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim();
+}
+
+// Nomes de ingrediente já usados no banco de receitas (uma ocorrência por nome, a primeira grafia vista).
+function getKnownIngredientNames() {
+  const known = new Map(); // normalizado -> grafia original
+  state.recipes.forEach((r) => {
+    (r.ingredients || []).forEach((ing) => {
+      const norm = normalizeIngName(ing.name);
+      if (norm && !known.has(norm)) known.set(norm, ing.name);
+    });
+  });
+  return known;
+}
+
+// Sugere nomes já usados que "contêm" ou "estão contidos" no nome novo — pega variações tipo
+// "Frango" -> "Peito de frango", mas não confunde cortes diferentes entre si ("Peito de frango"
+// não é substring de "Sobrecoxa de frango"). Só sugere, nunca troca sozinho — quem decide é o
+// usuário, porque só ele sabe se realmente é o mesmo corte/ingrediente.
+function findSimilarIngredientNames(name) {
+  const norm = normalizeIngName(name);
+  if (!norm) return [];
+  const known = getKnownIngredientNames();
+  const matches = [];
+  for (const [knownNorm, knownDisplay] of known) {
+    if (knownNorm === norm) continue;
+    if (knownNorm.includes(norm) || norm.includes(knownNorm)) matches.push(knownDisplay);
+  }
+  return matches.slice(0, 3);
+}
+
+function useSuggestedIngredientName(recipeIdx, ingIdx, name) {
+  const r = pendingImportRecipes[recipeIdx];
+  if (!r || !r.ingredientes[ingIdx]) return;
+  r.ingredientes[ingIdx].nome = name;
+  renderImportReview(pendingImportRecipes, pendingImportSource);
+}
+
 function renderImportReview(recipes, source) {
   pendingImportRecipes = recipes;
   pendingImportSource = source || null;
@@ -1409,7 +1454,20 @@ function renderImportReview(recipes, source) {
         </div>
       </div>
       <ul class="recipe-ing-list">
-        ${(r.ingredientes || []).map((i) => `<li>${i.quantidade} ${i.unidade} — ${i.nome}</li>`).join("")}
+        ${(r.ingredientes || [])
+          .map((i, ingIdx) => {
+            const suggestions = findSimilarIngredientNames(i.nome);
+            const suggestionHtml = suggestions.length
+              ? `<div class="ing-suggestion">Parecido com o que já existe: ${suggestions
+                  .map(
+                    (s) =>
+                      `<button type="button" class="ing-suggestion-chip" onclick="useSuggestedIngredientName(${idx},${ingIdx},'${s.replace(/'/g, "\\'")}')">${s}</button>`
+                  )
+                  .join(" ")}</div>`
+              : "";
+            return `<li>${i.quantidade} ${i.unidade} — ${i.nome}${suggestionHtml}</li>`;
+          })
+          .join("")}
       </ul>
       ${
         r.modo_preparo && r.modo_preparo.length
@@ -1470,10 +1528,14 @@ function closeImportModalIfDone() {
 function computeAggregatedIngredients() {
   const totals = {}; // key: "nome||unidade" -> { name, unit, qty }
   const week = getWeek(getCurrentWeekKey());
-  DAYS.forEach((d) => {
+  const weekDates = getWeekDates(0);
+  DAYS.forEach((d, i) => {
     ["almoco", "jantar"].forEach((meal) => {
       const m = week[d.key][meal];
       if (!m.emCasa || !m.recipeIds.length) return;
+      // Refeição que já passou (dia anterior, ou almoço de hoje depois das 14h) não entra mais
+      // na lista — já foi comprada/cozinhada, recalcular no meio da semana não deve pedir de novo.
+      if (getMealLock(weekDates[i], meal).locked) return;
       const factor = computeMealFactor(m);
       m.recipeIds.forEach((recipeId) => {
         const recipe = state.recipes.find((r) => r.id === recipeId);
