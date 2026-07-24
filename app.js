@@ -44,7 +44,16 @@ function migrateWeek(week) {
 // usado tanto pra um usuário novo quanto pra dado antigo salvo antes de alguma dessas features.
 function normalizeState(parsed) {
   const s = parsed ? { ...parsed } : {};
-  if (!s.recipes) s.recipes = structuredClone(SEED_RECIPES);
+  if (!s.recipes) {
+    s.recipes = structuredClone(SEED_RECIPES);
+  } else {
+    // Preenche com receitas novas do banco inicial que ainda não estão salvas (ex: usuário já
+    // tinha conta antes de expandirmos o SEED_RECIPES) — nunca sobrescreve o que já existe.
+    const existingIds = new Set(s.recipes.map((r) => r.id));
+    SEED_RECIPES.forEach((r) => {
+      if (!existingIds.has(r.id)) s.recipes.push(structuredClone(r));
+    });
+  }
   if (!s.week) s.week = defaultWeek();
   if (!s.people) s.people = [];
   s.people.forEach((p) => {
